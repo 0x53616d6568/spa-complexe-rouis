@@ -1,6 +1,7 @@
 import { type ReactNode, useEffect, useRef } from 'react';
 import { QueryClient, QueryClientProvider, useQueryClient } from '@tanstack/react-query';
-import { ClerkProvider, Show, SignIn, SignUp, useClerk, useUser } from '@clerk/react';
+import { ClerkProvider, Show, SignIn, SignUp } from '@clerk/react';
+import { useClerk, useUser, hasValidClerkKey } from '@/lib/safe-clerk';
 import { publishableKeyFromHost } from '@clerk/react/internal';
 import { shadcn } from '@clerk/themes';
 import { ErrorBoundary } from '@/components/error-boundary';
@@ -26,7 +27,6 @@ import { ArrowRight, Flower2, ShieldCheck } from 'lucide-react';
 const queryClient = new QueryClient();
 
 const rawClerkPubKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY ?? '';
-const hasValidClerkKey = rawClerkPubKey.startsWith('pk_') && !rawClerkPubKey.includes('replace_me');
 
 // Canonical Clerk key/proxy wiring: the host helper resolves custom domains and
 // proxyUrl is always passed (empty in development by design).

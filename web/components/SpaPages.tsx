@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { Link, useLocation } from 'wouter';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useClerk, useUser } from '@clerk/react';
+import { useClerk, useUser } from '@/lib/safe-clerk';
 import { useTheme } from 'next-themes';
 import { useLanguage } from '@/lib/i18n';
 import { ROUIS_SERVICES, ROUIS_CATEGORIES, formatPriceDT, formatMoneyDT, type RouisService, type RouisCategory } from '@/lib/rouis-services';

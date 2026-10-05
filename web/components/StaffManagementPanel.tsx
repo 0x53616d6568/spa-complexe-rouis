@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { Check, LoaderCircle, Pencil, Plus, Trash2, Users } from 'lucide-react';
-import { useUser } from '@clerk/react';
+import { useUser } from '@/lib/safe-clerk';
 import { useLanguage } from '@/lib/i18n';
 
 const permissionOptions = [
