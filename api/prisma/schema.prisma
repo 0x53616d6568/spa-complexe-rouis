@@ -1,0 +1,233 @@
+// REFERENCE ONLY: the running application uses Drizzle, not Prisma.
+// The authoritative runtime schema is in api/src/db/src/schema/.
+// Do not run Prisma migrations against a database from this file.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum BookingStatus {
+  pending
+  confirmed
+  checked_in
+  completed
+  cancelled
+  no_show
+
+  @@map("booking_status")
+}
+
+enum NotificationStatus {
+  queued
+  sending
+  sent
+  failed
+
+  @@map("notification_status")
+}
+
+model AuditLog {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  actorId    String?  @map("actor_id")
+  actorLabel String   @map("actor_label")
+  action     String
+  entityType String   @map("entity_type")
+  entityId   String   @map("entity_id")
+  requestId  String?  @map("request_id")
+  metadata   Json     @default("{}") @db.JsonB
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([createdAt], map: "audit_logs_created_idx")
+  @@index([entityType, entityId], map: "audit_logs_entity_idx")
+  @@map("audit_logs")
+}
+
+model Booking {
+  id                String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  bookingReference  String                @unique(map: "bookings_reference_uq") @map("booking_reference")
+  idempotencyKey    String                @unique(map: "bookings_idempotency_key_uq") @map("idempotency_key") @db.Uuid
+  customerId        String                @map("customer_id") @db.Uuid
+  serviceId         String                @map("service_id") @db.Uuid
+  staffId           String?               @map("staff_id") @db.Uuid
+  startsAt          DateTime              @map("starts_at") @db.Timestamptz(6)
+  endsAt            DateTime              @map("ends_at") @db.Timestamptz(6)
+  timezone          String
+  status            BookingStatus         @default(pending)
+  customerNote      String?               @map("customer_note")
+  cancellationReason String?              @map("cancellation_reason")
+  durationMinutes   Int                   @map("duration_minutes")
+  priceAmount       Int                   @map("price_amount")
+  currency          String
+  createdAt         DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime              @default(now()) @map("updated_at") @db.Timestamptz(6)
+  customer          Customer              @relation(fields: [customerId], references: [id])
+  service           Service               @relation(fields: [serviceId], references: [id])
+  staff             StaffProfile?         @relation(fields: [staffId], references: [id])
+  slotClaims        BookingSlotClaim[]
+  statusHistory     BookingStatusHistory[]
+  notifications     Notification[]
+
+  @@index([startsAt, status], map: "bookings_start_status_idx")
+  @@index([customerId, startsAt], map: "bookings_customer_idx")
+  @@index([staffId, startsAt], map: "bookings_staff_idx")
+  @@map("bookings")
+}
+
+model BookingSlotClaim {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  bookingId    String   @map("booking_id") @db.Uuid
+  slotStartsAt DateTime @unique(map: "booking_slot_claims_start_uq") @map("slot_starts_at") @db.Timestamptz(6)
+  booking      Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@index([bookingId], map: "booking_slot_claims_booking_idx")
+  @@map("booking_slot_claims")
+}
+
+model BookingStatusHistory {
+  id        String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  bookingId String        @map("booking_id") @db.Uuid
+  fromStatus BookingStatus? @map("from_status")
+  toStatus  BookingStatus @map("to_status")
+  changedBy String        @map("changed_by")
+  reason    String?
+  createdAt DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  booking   Booking       @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@index([bookingId], map: "booking_status_history_booking_idx")
+  @@map("booking_status_history")
+}
+
+model Customer {
+  id            String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email         String         @unique(map: "customers_email_uq")
+  name          String
+  phone         String
+  createdAt     DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime       @default(now()) @map("updated_at") @db.Timestamptz(6)
+  bookings      Booking[]
+  notifications Notification[]
+
+  @@index([name], map: "customers_name_idx")
+  @@map("customers")
+}
+
+model Notification {
+  id           String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  customerId   String             @map("customer_id") @db.Uuid
+  bookingId    String             @map("booking_id") @db.Uuid
+  channel      String             @default("email")
+  templateKey  String             @map("template_key")
+  recipient    String
+  payload      Json               @db.JsonB
+  status       NotificationStatus @default(queued)
+  attemptCount Int                @default(0) @map("attempt_count")
+  lastError    String?            @map("last_error")
+  nextAttemptAt DateTime           @default(now()) @map("next_attempt_at") @db.Timestamptz(6)
+  sentAt       DateTime?          @map("sent_at") @db.Timestamptz(6)
+  createdAt    DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  customer     Customer           @relation(fields: [customerId], references: [id])
+  booking      Booking            @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@index([status, createdAt], map: "notifications_status_created_idx")
+  @@index([bookingId], map: "notifications_booking_idx")
+  @@map("notifications")
+}
+
+model ServiceCategory {
+  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name      String
+  slug      String    @unique(map: "service_categories_slug_uq")
+  sortOrder Int       @default(0) @map("sort_order")
+  isActive  Boolean   @default(true) @map("is_active")
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  services  Service[]
+
+  @@map("service_categories")
+}
+
+model Service {
+  id                 String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  categoryId         String           @map("category_id") @db.Uuid
+  name               String
+  slug               String           @unique(map: "services_slug_uq")
+  shortDescription   String           @map("short_description")
+  description        String
+  durationMinutes    Int              @map("duration_minutes")
+  bufferBeforeMinutes Int             @default(0) @map("buffer_before_minutes")
+  bufferAfterMinutes Int              @default(0) @map("buffer_after_minutes")
+  priceAmount        Int              @map("price_amount")
+  currency           String           @default("NGN")
+  imageUrl           String?          @map("image_url")
+  isFeatured         Boolean          @default(false) @map("is_featured")
+  isActive           Boolean          @default(true) @map("is_active")
+  createdAt          DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime         @default(now()) @map("updated_at") @db.Timestamptz(6)
+  category           ServiceCategory  @relation(fields: [categoryId], references: [id])
+  bookings           Booking[]
+  staffServices      StaffService[]
+
+  @@map("services")
+}
+
+model StaffProfile {
+  id          String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  clerkUserId String?        @unique(map: "staff_profiles_clerk_user_id_uq") @map("clerk_user_id")
+  displayName String         @map("display_name")
+  bio         String         @default("")
+  isBookable  Boolean        @default(true) @map("is_bookable")
+  isActive    Boolean        @default(true) @map("is_active")
+  createdAt   DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime       @default(now()) @map("updated_at") @db.Timestamptz(6)
+  bookings    Booking[]
+  services    StaffService[]
+
+  @@index([isActive, isBookable], map: "staff_profiles_active_idx")
+  @@map("staff_profiles")
+}
+
+model StaffService {
+  staffId   String      @map("staff_id") @db.Uuid
+  serviceId String      @map("service_id") @db.Uuid
+  staff     StaffProfile @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  service   Service     @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+
+  @@id([staffId, serviceId])
+  @@index([serviceId], map: "staff_services_service_idx")
+  @@map("staff_services")
+}
+
+model WorkingHour {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  dayOfWeek Int      @unique(map: "working_hours_day_uq") @map("day_of_week")
+  openTime  DateTime @map("open_time") @db.Time(6)
+  closeTime DateTime @map("close_time") @db.Time(6)
+  isClosed  Boolean  @default(false) @map("is_closed")
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
+
+  @@map("working_hours")
+}
+
+model SpaSetting {
+  id                 String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name               String
+  tagline            String
+  address            String
+  city               String
+  region             String
+  contactEmail       String   @map("contact_email")
+  contactPhone       String   @map("contact_phone")
+  timezone           String   @default("Africa/Lagos")
+  currency           String   @default("NGN")
+  cancellationPolicy String   @map("cancellation_policy")
+  bookingWindowDays  Int      @default(60) @map("booking_window_days")
+  minimumNoticeHours Int      @default(2) @map("minimum_notice_hours")
+  isDemo             Boolean  @default(true) @map("is_demo")
+  updatedAt          DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
+
+  @@map("spa_settings")
+}

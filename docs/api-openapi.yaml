@@ -1,0 +1,460 @@
+openapi: 3.1.0
+info:
+  # Do not change the title, if the title changes, the import paths will be broken
+  title: Api
+  version: 0.2.0
+  description: Public spa catalog, guest booking, and protected staff operations.
+servers:
+  - url: /api
+    description: Base API path
+tags:
+  - name: health
+    description: Health operations
+  - name: public
+    description: Public spa profile, services, and availability
+  - name: bookings
+    description: Guest-first appointment booking
+  - name: manager
+    description: Protected day-to-day spa operations
+  - name: admin
+    description: Protected owner administration
+paths:
+  /healthz:
+    get:
+      operationId: healthCheck
+      tags: [health]
+      summary: Health check
+      description: Returns server health status
+      responses:
+        "200":
+          description: Healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+  /spa:
+    get:
+      operationId: getSpaProfile
+      tags: [public]
+      summary: Get public spa profile
+      responses:
+        "200":
+          description: Public spa profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SpaProfile"
+  /services:
+    get:
+      operationId: listServices
+      tags: [public]
+      summary: List active services
+      responses:
+        "200":
+          description: Active treatment catalog
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Service"
+  /services/{slug}:
+    get:
+      operationId: getService
+      tags: [public]
+      summary: Get one service by slug
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Service details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Service"
+        "404":
+          description: Service not found
+  /availability:
+    get:
+      operationId: getAvailability
+      tags: [public]
+      summary: List available appointment slots
+      parameters:
+        - name: serviceId
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: date
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+      responses:
+        "200":
+          description: Available appointment slots in the spa timezone
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AvailabilitySlot"
+  /bookings:
+    post:
+      operationId: createBooking
+      tags: [bookings]
+      summary: Create a guest booking
+      description: Rechecks availability on the server and rejects overlapping appointments.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BookingInput"
+      responses:
+        "201":
+          description: Booking created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BookingConfirmation"
+        "400":
+          description: Invalid request
+        "409":
+          description: The selected time is no longer available
+  /manager/dashboard:
+    get:
+      operationId: getManagerDashboard
+      tags: [manager]
+      summary: Get operational dashboard summary
+      responses:
+        "200":
+          description: Today's operational summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ManagerDashboard"
+        "401":
+          description: Authentication required
+        "403":
+          description: Manager permission required
+  /manager/bookings:
+    get:
+      operationId: listManagerBookings
+      tags: [manager]
+      summary: List bookings for a selected day
+      parameters:
+        - name: date
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+      responses:
+        "200":
+          description: Bookings for the requested day
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ManagerBooking"
+        "401":
+          description: Authentication required
+        "403":
+          description: Manager permission required
+  /manager/staff:
+    get:
+      operationId: listManagerStaff
+      tags: [manager]
+      summary: List active therapists for assignment
+      responses:
+        "200":
+          description: Staff members available to the manager
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/StaffProfile"
+        "401":
+          description: Authentication required
+        "403":
+          description: Manager permission required
+  /manager/bookings/{id}/staff:
+    patch:
+      operationId: assignBookingStaff
+      tags: [manager]
+      summary: Assign or unassign a therapist from a booking
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StaffAssignment"
+      responses:
+        "200":
+          description: Booking assignment updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ManagerBooking"
+        "400":
+          description: Invalid assignment
+        "401":
+          description: Authentication required
+        "403":
+          description: Manager permission required
+        "404":
+          description: Booking or staff member not found
+        "409":
+          description: Therapist is not qualified for the service or has a conflicting appointment
+  /manager/bookings/{id}/status:
+    patch:
+      operationId: updateBookingStatus
+      tags: [manager]
+      summary: Change a booking through an allowed lifecycle transition
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BookingStatusUpdate"
+      responses:
+        "200":
+          description: Booking status updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ManagerBooking"
+        "400":
+          description: Invalid status transition
+        "409":
+          description: Booking cannot make the requested status transition
+        "401":
+          description: Authentication required
+        "403":
+          description: Manager permission required
+        "404":
+          description: Booking not found
+  /admin/audit-logs:
+    get:
+      operationId: listAuditLogs
+      tags: [admin]
+      summary: List recent audited operations
+      responses:
+        "200":
+          description: Recent admin-visible audit events
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AuditEvent"
+        "401":
+          description: Authentication required
+        "403":
+          description: Admin permission required
+components:
+  schemas:
+    HealthStatus:
+      type: object
+      properties:
+        status:
+          type: string
+      required:
+        - status
+    SpaProfile:
+      type: object
+      properties:
+        name: { type: string }
+        tagline: { type: string }
+        address: { type: string }
+        city: { type: string }
+        region: { type: string }
+        contactEmail: { type: string, format: email }
+        contactPhone: { type: string }
+        timezone: { type: string }
+        openingHours: { type: string }
+        cancellationPolicy: { type: string }
+      required:
+        - name
+        - tagline
+        - address
+        - city
+        - region
+        - contactEmail
+        - contactPhone
+        - timezone
+        - openingHours
+        - cancellationPolicy
+    Service:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        slug: { type: string }
+        name: { type: string }
+        category: { type: string }
+        shortDescription: { type: string }
+        description: { type: string }
+        durationMinutes: { type: integer }
+        priceAmount: { type: integer, description: Amount in the currency's minor unit, such as kobo or cents }
+        currency: { type: string }
+        imageUrl: { type: ["string", "null"] }
+        isFeatured: { type: boolean }
+      required:
+        - id
+        - slug
+        - name
+        - category
+        - shortDescription
+        - description
+        - durationMinutes
+        - priceAmount
+        - currency
+        - imageUrl
+        - isFeatured
+    AvailabilitySlot:
+      type: object
+      properties:
+        startsAt: { type: string, format: date-time }
+        endsAt: { type: string, format: date-time }
+        label: { type: string }
+      required: [startsAt, endsAt, label]
+    BookingInput:
+      type: object
+      properties:
+        serviceId: { type: string, format: uuid }
+        startsAt: { type: string, format: date-time }
+        customerName: { type: string, minLength: 2, maxLength: 120 }
+        customerEmail: { type: string, format: email, maxLength: 254 }
+        customerPhone: { type: string, minLength: 7, maxLength: 40 }
+        customerNote: { type: ["string", "null"], maxLength: 1000 }
+        policyAccepted: { type: boolean, enum: [true] }
+        idempotencyKey: { type: string, format: uuid }
+      required:
+        - serviceId
+        - startsAt
+        - customerName
+        - customerEmail
+        - customerPhone
+        - policyAccepted
+        - idempotencyKey
+    BookingConfirmation:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        bookingReference: { type: string }
+        serviceName: { type: string }
+        startsAt: { type: string, format: date-time }
+        endsAt: { type: string, format: date-time }
+        durationMinutes: { type: integer }
+        priceAmount: { type: integer, description: Amount in the currency's minor unit, such as kobo or cents }
+        currency: { type: string }
+        status:
+          type: string
+          enum: [pending, confirmed, checked_in, completed, cancelled, no_show]
+      required:
+        - id
+        - bookingReference
+        - serviceName
+        - startsAt
+        - endsAt
+        - durationMinutes
+        - priceAmount
+        - currency
+        - status
+    ManagerBooking:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        serviceId: { type: string, format: uuid }
+        bookingReference: { type: string }
+        customerName: { type: string }
+        customerEmail: { type: string, format: email }
+        customerPhone: { type: string }
+        serviceName: { type: string }
+        staffName: { type: ["string", "null"] }
+        startsAt: { type: string, format: date-time }
+        endsAt: { type: string, format: date-time }
+        status:
+          type: string
+          enum: [pending, confirmed, checked_in, completed, cancelled, no_show]
+      required:
+        - id
+        - serviceId
+        - bookingReference
+        - customerName
+        - customerEmail
+        - customerPhone
+        - serviceName
+        - staffName
+        - startsAt
+        - endsAt
+        - status
+    StaffProfile:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        displayName: { type: string }
+        bio: { type: string }
+        isActive: { type: boolean }
+        serviceIds:
+          type: array
+          items: { type: string, format: uuid }
+      required: [id, displayName, bio, isActive, serviceIds]
+    ManagerDashboard:
+      type: object
+      properties:
+        todayCount: { type: integer }
+        pendingCount: { type: integer }
+        completedCount: { type: integer }
+        nextBooking:
+          anyOf:
+            - $ref: "#/components/schemas/ManagerBooking"
+            - type: "null"
+      required: [todayCount, pendingCount, completedCount, nextBooking]
+    BookingStatusUpdate:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [confirmed, checked_in, completed, cancelled, no_show]
+        reason: { type: ["string", "null"], maxLength: 500 }
+      required: [status]
+    StaffAssignment:
+      type: object
+      properties:
+        staffId: { type: ["string", "null"], format: uuid }
+      required: [staffId]
+    AuditEvent:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        actorLabel: { type: string }
+        action: { type: string }
+        entityType: { type: string }
+        entityId: { type: string }
+        createdAt: { type: string, format: date-time }
+      required: [id, actorLabel, action, entityType, entityId, createdAt]
+

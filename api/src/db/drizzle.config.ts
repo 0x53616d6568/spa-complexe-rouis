@@ -1,0 +1,25 @@
+import { defineConfig } from "drizzle-kit";
+import path from "path";
+import dotenv from "dotenv";
+
+dotenv.config({ path: path.resolve(__dirname, "../../../.env") });
+
+if (!process.env.DATABASE_URL) {
+  throw new Error("DATABASE_URL, ensure the database is provisioned");
+}
+
+export default defineConfig({
+  schema: "./src/schema/*.ts",
+  dialect: "postgresql",
+  dbCredentials: {
+    url: process.env.DATABASE_URL,
+    ...(process.env.DATABASE_URL && !/localhost|127\.0\.0\.1/.test(process.env.DATABASE_URL)
+      ? {
+          ssl: {
+            rejectUnauthorized: false,
+            checkServerIdentity: () => undefined,
+          },
+        }
+      : {}),
+  },
+});
