@@ -69,7 +69,7 @@ export function SiteShell({ children }: { children: ReactNode }) {
   ];
   return <div className="min-h-[100dvh] bg-background text-foreground">
     <div className="border-b border-border/70 bg-secondary/65 px-4 py-2 text-center text-[11px] tracking-[.16em] text-muted-foreground">
-      {t('Demo setup')}
+      Ouvert 7j/7 · 09:00 – 19:00 · Complexe Rouis d'Esthétique
     </div>
     <header className="sticky top-0 z-40 border-b border-border/70 bg-background/95 backdrop-blur-md">
       <div className="mx-auto flex h-[76px] max-w-[1320px] items-center justify-between px-5 lg:px-10">
@@ -106,9 +106,9 @@ export function SiteShell({ children }: { children: ReactNode }) {
       <div className="mx-auto grid max-w-[1320px] gap-10 md:grid-cols-[1.3fr_1fr_1fr]">
         <div><div className="serif text-4xl">{t('A little room to breathe.')}</div><p className="mt-3 max-w-sm text-sm leading-6 text-primary-foreground/70">{t('A neighborhood place to set the day down for a while.')}</p><div className="mt-5"><HealthPip/></div></div>
         <div><p className="mono text-[10px] tracking-[.18em] text-primary-foreground/55">{t('FIND YOUR WAY')}</p><div className="mt-4 grid gap-3 text-sm"><Link href="/services">{t('Treatments')}</Link><Link href="/policies">{t('Visit information')}</Link><Link href="/privacy">{t('Privacy')}</Link><Link href="/admin/audit-logs">{t('Owner access')}</Link></div></div>
-        <div><p className="mono text-[10px] tracking-[.18em] text-primary-foreground/55">{t('DEMO CONTACT')}</p><p className="mt-4 text-sm">{spa?.address || t('Address loading')}<br/>{spa ? `${spa.city}, ${spa.region}` : ''}</p><p className="mt-3 text-sm">{spa?.contactEmail || 'Contact loading'}</p><p className="mt-1 text-sm">{spa?.contactPhone || ''}</p><p className="mt-4 text-[10px] leading-4 text-primary-foreground/50">{t('Seed setup placeholders')}</p></div>
+        <div><p className="mono text-[10px] tracking-[.18em] text-primary-foreground/55">{t('CONTACT')}</p><p className="mt-4 text-sm">{spa?.address || 'Complexe Rouis'}<br/>{spa ? `${spa.city}, ${spa.region}` : 'Tunisie'}</p><p className="mt-3 text-sm">{spa?.contactEmail || 'contact@complexerouis.com'}</p><p className="mt-1 text-sm">{spa?.contactPhone || '+216 -- --- ---'}</p></div>
       </div>
-      <div className="mx-auto mt-10 max-w-[1320px] border-t border-primary-foreground/20 pt-5 text-[10px] text-primary-foreground/55">© Complexe Rouis d'esthétique</div>
+      <div className="mx-auto mt-10 max-w-[1320px] border-t border-primary-foreground/20 pt-5 text-[10px] text-primary-foreground/55">© Complexe Rouis d'esthétique — Tous droits réservés.</div>
     </footer>
   </div>;
 }
