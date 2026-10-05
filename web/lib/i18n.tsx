@@ -187,6 +187,12 @@ Object.assign(translations.fr, {
   'Total duration': 'Duree totale', Total: 'Total', Date: 'Date', Time: 'Heure',
   'Cancellation policy is a demo/setup placeholder.': 'Les conditions d annulation sont un exemple de demonstration.',
   'Retry loading treatments': 'Reessayer de charger les soins',
+  'Cookie consent': 'Choix des cookies', 'Your privacy matters': 'Votre vie privee compte',
+  'We use essential cookies and browser storage for sign-in, your cart, language, and booking flow. We do not currently use analytics or advertising cookies.': 'Nous utilisons des cookies essentiels et le stockage du navigateur pour la connexion, le panier, la langue et les reservations. Aucun cookie analytique ou publicitaire n est actuellement utilise.',
+  'Accept all': 'Tout accepter', 'Reject optional': 'Refuser les cookies facultatifs', 'Cookie details': 'Details des cookies', 'Hide details': 'Masquer les details',
+  'Essential storage': 'Stockage essentiel', 'Required for sign-in, cart, language, and booking features; always active.': 'Necessaire a la connexion, au panier, a la langue et aux reservations ; toujours actif.',
+  'Optional tracking': 'Suivi facultatif', 'No analytics or advertising trackers are currently enabled.': 'Aucun outil de suivi analytique ou publicitaire n est active.',
+  'Read our privacy information': 'Lire les informations sur la confidentialite', 'Cookie settings': 'Reglages des cookies',
 });
 
 Object.assign(translations.ar, {
@@ -206,6 +212,12 @@ Object.assign(translations.ar, {
   'Total duration': '\u0627\u0644\u0645\u062f\u0629 \u0627\u0644\u0643\u0644\u064a\u0629', Total: '\u0627\u0644\u0645\u062c\u0645\u0648\u0639', Date: '\u0627\u0644\u062a\u0627\u0631\u064a\u062e', Time: '\u0627\u0644\u0648\u0642\u062a',
   'Cancellation policy is a demo/setup placeholder.': '\u0633\u064a\u0627\u0633\u0629 \u0627\u0644\u0625\u0644\u063a\u0627\u0621 \u0645\u062b\u0627\u0644 \u062a\u062c\u0631\u064a\u0628\u064a.',
   'Retry loading treatments': '\u0623\u0639\u062f \u0645\u062d\u0627\u0648\u0644\u0629 \u062a\u062d\u0645\u064a\u0644 \u0627\u0644\u0639\u0644\u0627\u062c\u0627\u062a',
+  'Cookie consent': '\u0625\u0639\u062f\u0627\u062f\u0627\u062a \u0627\u0644\u0643\u0648\u0643\u064a\u0632', 'Your privacy matters': '\u062e\u0635\u0648\u0635\u064a\u062a\u0643 \u062a\u0647\u0645\u0646\u0627',
+  'We use essential cookies and browser storage for sign-in, your cart, language, and booking flow. We do not currently use analytics or advertising cookies.': '\u0646\u0633\u062a\u062e\u062f\u0645 \u0643\u0648\u0643\u064a\u0632 \u0623\u0633\u0627\u0633\u064a\u0629 \u0648\u062a\u062e\u0632\u064a\u0646 \u0627\u0644\u0645\u062a\u0635\u0641\u062d \u0644\u062a\u0633\u062c\u064a\u0644 \u0627\u0644\u062f\u062e\u0648\u0644 \u0648\u0627\u0644\u0633\u0644\u0629 \u0648\u0627\u0644\u0644\u063a\u0629 \u0648\u0627\u0644\u062d\u062c\u0632. \u0644\u0627 \u0646\u0633\u062a\u062e\u062f\u0645 \u062d\u0627\u0644\u064a\u064b\u0627 \u0643\u0648\u0643\u064a\u0632 \u0644\u0644\u062a\u062d\u0644\u064a\u0644 \u0623\u0648 \u0627\u0644\u0625\u0639\u0644\u0627\u0646\u0627\u062a.',
+  'Accept all': '\u0642\u0628\u0648\u0644 \u0627\u0644\u0643\u0644', 'Reject optional': '\u0631\u0641\u0636 \u0627\u0644\u0627\u062e\u062a\u064a\u0627\u0631\u064a', 'Cookie details': '\u062a\u0641\u0627\u0635\u064a\u0644 \u0627\u0644\u0643\u0648\u0643\u064a\u0632', 'Hide details': '\u0625\u062e\u0641\u0627\u0621 \u0627\u0644\u062a\u0641\u0627\u0635\u064a\u0644',
+  'Essential storage': '\u062a\u062e\u0632\u064a\u0646 \u0623\u0633\u0627\u0633\u064a', 'Required for sign-in, cart, language, and booking features; always active.': '\u0636\u0631\u0648\u0631\u064a \u0644\u062a\u0633\u062c\u064a\u0644 \u0627\u0644\u062f\u062e\u0648\u0644 \u0648\u0627\u0644\u0633\u0644\u0629 \u0648\u0627\u0644\u0644\u063a\u0629 \u0648\u0645\u064a\u0632\u0627\u062a \u0627\u0644\u062d\u062c\u0632\u060c \u0648\u064a\u0638\u0644 \u0645\u0641\u0639\u0644\u064b\u0627.',
+  'Optional tracking': '\u062a\u062a\u0628\u0639 \u0627\u062e\u062a\u064a\u0627\u0631\u064a', 'No analytics or advertising trackers are currently enabled.': '\u0644\u0627 \u062a\u0648\u062c\u062f \u062d\u0627\u0644\u064a\u064b\u0627 \u0623\u062f\u0648\u0627\u062a \u062a\u062a\u0628\u0639 \u062a\u062d\u0644\u064a\u0644\u064a\u0629 \u0623\u0648 \u0625\u0639\u0644\u0627\u0646\u064a\u0629 \u0645\u0641\u0639\u0644\u0629.',
+  'Read our privacy information': '\u0627\u0642\u0631\u0623 \u0645\u0639\u0644\u0648\u0645\u0627\u062a \u0627\u0644\u062e\u0635\u0648\u0635\u064a\u0629', 'Cookie settings': '\u0625\u0639\u062f\u0627\u062f\u0627\u062a \u0627\u0644\u0643\u0648\u0643\u064a\u0632',
 });
 
 type LanguageContextValue = { language: Language; setLanguage: (language: Language) => void; t: (english: string) => string };
