@@ -98,16 +98,16 @@ export function SiteShell({ children }: { children: ReactNode }) {
     <div className="border-b border-border/70 bg-secondary/65 px-4 py-2 text-center text-[11px] tracking-[.16em] text-muted-foreground">
       Ouvert 7j/7 · 09:00 – 19:00 · Complexe Rouis d'Esthétique
     </div>
-    <header className="sticky top-0 z-40 border-b border-border/70 bg-background/95 backdrop-blur-md">
-      <div className="mx-auto flex h-[76px] max-w-[1320px] items-center justify-between px-5 lg:px-10">
-        <Link href="/" className="flex items-center gap-3" data-testid="link-brand">
-          <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-primary text-primary-foreground"><Flower2 size={21}/></span>
-          <span><span className="serif block text-[22px] leading-[.9]">Complexe Rouis</span><span className="mono mt-1 block text-[8px] tracking-[.2em] text-muted-foreground">{t('A NEIGHBORHOOD PAUSE')}</span></span>
+    <header className="relative z-40 border-b border-border/70 bg-background/95 md:sticky md:top-0 md:backdrop-blur-md">
+      <div className="mx-auto flex h-[76px] min-w-0 max-w-[1320px] items-center justify-between gap-2 px-3 sm:px-5 lg:px-10">
+        <Link href="/" className="flex min-w-0 shrink items-center gap-2 sm:gap-3" data-testid="link-brand">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-primary text-primary-foreground"><Flower2 size={21}/></span>
+          <span className="min-w-0 max-[370px]:hidden"><span className="serif block truncate text-[20px] leading-[.9] sm:text-[22px]">Complexe Rouis</span><span className="mono mt-1 block truncate text-[8px] tracking-[.2em] text-muted-foreground">{t('A NEIGHBORHOOD PAUSE')}</span></span>
         </Link>
         <nav className="hidden items-center gap-5 lg:gap-8 md:flex">
           {nav.map(item => <Link key={item.href} href={item.href} className="text-[13px] text-foreground/75 transition hover:text-primary" data-testid={`link-nav-${item.label.toLowerCase().replaceAll(' ','-')}`}>{item.label}</Link>)}
         </nav>
-        <div className="flex shrink-0 items-center gap-3">
+        <div className="flex shrink-0 items-center gap-1.5 sm:gap-3">
           {user ? (
             <button
               type="button"
