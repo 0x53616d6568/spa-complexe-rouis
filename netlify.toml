@@ -1,7 +1,6 @@
 [build]
-  base = "web"
-  command = "pnpm build"
-  publish = "dist"
+  command = "pnpm --filter @workspace/spa-platform run build"
+  publish = "web/dist"
 
 [[redirects]]
   from = "/*"
