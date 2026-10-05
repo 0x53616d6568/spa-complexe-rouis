@@ -192,7 +192,7 @@ function DynamicServiceCard({ service }: { service: Service }) {
       <div className="px-5 pb-5 pt-0">
         <div className="flex items-center justify-between border-t border-border/70 pt-4 text-xs">
           <div className="flex flex-col">
-            <span className="font-semibold text-primary text-sm">{formatMoney(service.priceAmount, service.currency)}</span>
+            <span className="flex flex-col items-end"><span className="font-semibold text-primary text-sm">{formatMoney(service.priceAmount, service.currency)}</span>{service.discountPercent>0&&<span className="text-[10px]"><del className="me-1 text-muted-foreground">{formatMoney(service.originalPriceAmount,service.currency)}</del><span className="font-semibold text-destructive">-{service.discountPercent}%</span></span>}</span>
             <span className="text-[10px] text-muted-foreground">{service.durationMinutes} min</span>
           </div>
           <button
@@ -411,7 +411,7 @@ export function ServiceDetailPage({ slug }: { slug: string }) {
                 </div>
                 <div>
                   <p className="mono text-[9px] tracking-[.16em] text-muted-foreground">{t('PRICE')}</p>
-                  <p className="mt-2 text-sm font-semibold text-primary">{formatMoney(s.priceAmount, s.currency)}</p>
+                  <p className="mt-2 flex flex-wrap items-center gap-2 text-sm font-semibold text-primary">{formatMoney(s.priceAmount, s.currency)}{s.discountPercent>0&&<><del className="text-xs font-normal text-muted-foreground">{formatMoney(s.originalPriceAmount,s.currency)}</del><span className="rounded-full bg-destructive/10 px-2 py-1 text-[10px] text-destructive">-{s.discountPercent}%</span></>}</p>
                 </div>
               </div>
               <button
@@ -554,7 +554,7 @@ export function BookingPage() {
     <div className="grid gap-8 lg:grid-cols-[1fr_350px]">
       <form onSubmit={submit} className="space-y-8 rounded-[1.5rem] border border-border bg-card p-5 md:p-8">
         <section><StepLabel n="01" text="Choose a treatment"/><div className="mt-4 flex flex-col gap-3 sm:flex-row"><select value={serviceToAdd} onChange={event => setServiceToAdd(event.target.value)} className="min-w-0 flex-1 rounded-xl border border-input bg-background px-4 py-3.5 text-sm" data-testid="select-booking-service"><option value="">{t('Select a treatment')}</option>{services.data?.map(service => <option value={service.id} key={service.id}>{service.name} | {service.durationMinutes} min | {formatMoney(service.priceAmount, service.currency)}</option>)}</select><button type="button" onClick={addToCart} disabled={!serviceToAdd || cartServiceIds.length >= 8} className="inline-flex items-center justify-center gap-2 rounded-full border border-border px-5 py-3 text-sm disabled:opacity-50"><Plus size={15}/>{t('Add to cart')}</button></div>{services.isLoading&&<p className="mt-2 text-xs text-muted-foreground">{t('Loading treatments')}</p>}{services.isError&&<button type="button" onClick={()=>void services.refetch()} className="mt-2 text-xs underline">{t('Retry loading treatments')}</button>}
-          <div className="mt-5 rounded-2xl border border-border p-4"><div className="flex items-center justify-between"><h3 className="text-sm font-medium">{t('Your cart')}</h3><span className="text-xs text-muted-foreground">{cartServices.length}/8</span></div>{cartServices.length?<ul className="mt-3 divide-y divide-border">{cartServices.map((service,index)=><li key={service.id} className="flex items-center justify-between gap-3 py-3"><div><p className="text-sm">{index+1}. {service.name}</p><p className="mt-1 text-xs text-muted-foreground">{service.durationMinutes} min | {formatMoney(service.priceAmount,service.currency)}</p></div><button type="button" onClick={()=>removeFromCart(service.id)} aria-label={`${t('Remove')} ${service.name}`} className="rounded-full border border-border px-3 py-1.5 text-xs">{t('Remove')}</button></li>)}</ul>:<p className="mt-3 text-sm text-muted-foreground">{t('Your cart is empty. Add one or more treatments to continue.')}</p>}</div>
+          <div className="mt-5 rounded-2xl border border-border p-4"><div className="flex items-center justify-between"><h3 className="text-sm font-medium">{t('Your cart')}</h3><span className="text-xs text-muted-foreground">{cartServices.length}/8</span></div>{cartServices.length?<ul className="mt-3 divide-y divide-border">{cartServices.map((service,index)=><li key={service.id} className="flex items-center justify-between gap-3 py-3"><div><p className="text-sm">{index+1}. {service.name}</p><p className="mt-1 text-xs text-muted-foreground">{service.durationMinutes} min | {service.discountPercent>0&&<><del className="me-1">{formatMoney(service.originalPriceAmount,service.currency)}</del><span className="me-1 text-destructive">-{service.discountPercent}%</span></>}{formatMoney(service.priceAmount,service.currency)}</p></div><button type="button" onClick={()=>removeFromCart(service.id)} aria-label={`${t('Remove')} ${service.name}`} className="rounded-full border border-border px-3 py-1.5 text-xs">{t('Remove')}</button></li>)}</ul>:<p className="mt-3 text-sm text-muted-foreground">{t('Your cart is empty. Add one or more treatments to continue.')}</p>}</div>
         </section>
         <section><StepLabel n="02" text="Pick a day & time"/><input type="date" min={dateLocal(new Date())} value={date} onChange={event=>{setDate(event.target.value);setSlot('')}} className="mt-4 rounded-xl border border-input bg-background px-4 py-3 text-sm" data-testid="input-booking-date"/>{cartServiceIds.length>0&&<div className="mt-4">{cartQuery.isLoading?<div className="flex gap-2">{[1,2,3,4].map(i=><span key={i} className="h-10 w-20 animate-pulse rounded-full bg-secondary"/>)}</div>:cartQuery.isError?<div className="rounded-xl bg-secondary p-4 text-sm">{t('Availability could not be loaded.')} <button type="button" onClick={()=>void cartQuery.refetch()} className="underline">{t('Try again')}</button></div>:cartQuery.data?.length?<div className="flex flex-wrap gap-2">{cartQuery.data.map(item=><button type="button" key={item.startsAt} onClick={()=>setSlot(item.startsAt)} className={`rounded-full border px-4 py-2.5 text-xs transition ${slot===item.startsAt?'border-primary bg-primary text-primary-foreground':'border-border hover:bg-secondary'}`} data-testid={`slot-${item.startsAt}`}>{item.label}</button>)}</div>:<div className="rounded-xl bg-secondary p-4 text-sm text-muted-foreground">{t('No available times for this cart on this date. Choose another day.')}</div>}</div>}</section>
         <section><StepLabel n="03" text="Your details"/><div className="mt-4 grid gap-4 sm:grid-cols-2"><label className="grid gap-2 text-xs">{t('Full name')}<input required minLength={2} maxLength={120} value={name} onChange={event=>setName(event.target.value)} autoComplete="name" className="rounded-xl border border-input bg-background px-4 py-3 text-sm" data-testid="input-booking-name"/></label><label className="grid gap-2 text-xs">{t('Email address')}<input required type="email" maxLength={254} value={email} onChange={event=>setEmail(event.target.value)} autoComplete="email" className="rounded-xl border border-input bg-background px-4 py-3 text-sm" data-testid="input-booking-email"/></label><label className="grid gap-2 text-xs">{t('Phone number')}<input required type="tel" minLength={7} maxLength={40} value={phone} onChange={event=>setPhone(event.target.value)} autoComplete="tel" className="rounded-xl border border-input bg-background px-4 py-3 text-sm" data-testid="input-booking-phone"/></label><label className="grid gap-2 text-xs">{t('A note for our team')} <span className="text-muted-foreground">{t('(optional)')}</span><input maxLength={1000} value={note} onChange={event=>setNote(event.target.value)} className="rounded-xl border border-input bg-background px-4 py-3 text-sm" data-testid="input-booking-note"/></label></div></section>
@@ -562,7 +562,7 @@ export function BookingPage() {
         {formError&&<p className="rounded-xl border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive" role="alert" data-testid="status-booking-error">{formError}</p>}
         <button disabled={submitting||cartServices.length===0} className="flex w-full items-center justify-center gap-2 rounded-full bg-primary px-6 py-4 text-sm font-medium text-primary-foreground disabled:opacity-60" data-testid="button-submit-booking">{submitting?<><LoaderCircle className="animate-spin" size={17}/>{t('Checking and booking?')}</>:<>{t('Reserve cart')} <ArrowRight size={16}/></>}</button>
       </form>
-      <aside className="h-fit rounded-[1.5rem] bg-secondary p-6 lg:sticky lg:top-28"><p className="mono text-[9px] tracking-[.2em] text-primary">{t('YOUR VISIT')}</p><h2 className="serif mt-3 text-3xl">{t('Reservation summary')}</h2>{cartServices.length?<div className="mt-5 border-t border-primary/15 pt-4 text-sm"><ul className="space-y-3">{cartServices.map(service=><li key={service.id} className="flex justify-between gap-3"><span>{service.name}</span><span className="whitespace-nowrap">{formatMoney(service.priceAmount,service.currency)}</span></li>)}</ul><div className="mt-4 flex justify-between border-t border-primary/15 pt-4"><span className="text-muted-foreground">{t('Treatment time')}</span><span>{totalServiceDuration} min</span></div><div className="flex justify-between py-2 font-medium"><span>{t('Total')}</span><span>{formatMoney(totalPrice,currency)}</span></div><div className="flex justify-between py-2"><span className="text-muted-foreground">{t('Date')}</span><span>{date?new Date(`${date}T12:00:00`).toLocaleDateString(undefined,{month:'short',day:'numeric'}):t('Choose a date')}</span></div><div className="flex justify-between py-2"><span className="text-muted-foreground">{t('Time')}</span><span>{cartQuery.data?.find(item=>item.startsAt===slot)?.label||t('Choose a time')}</span></div></div>:<p className="mt-2 text-sm leading-6 text-muted-foreground">{t('Your cart is empty. Add one or more treatments to continue.')}</p>}{cartServices.length > 1 && <p className="mt-2 text-xs text-muted-foreground">{t('Includes the required space between treatments.')}</p>}<div className="mt-6 border-t border-primary/15 pt-4"><div className="flex gap-3"><ShieldCheck className="shrink-0 text-primary" size={18}/><p className="text-xs leading-5 text-muted-foreground">{t('No account needed. Your request is checked against live availability when you confirm.')}</p></div><p className="mt-4 text-[10px] leading-4 text-muted-foreground">{profile.data?.cancellationPolicy||t('Cancellation policy is a demo/setup placeholder.')}</p></div></aside>
+      <aside className="h-fit rounded-[1.5rem] bg-secondary p-6 lg:sticky lg:top-28"><p className="mono text-[9px] tracking-[.2em] text-primary">{t('YOUR VISIT')}</p><h2 className="serif mt-3 text-3xl">{t('Reservation summary')}</h2>{cartServices.length?<div className="mt-5 border-t border-primary/15 pt-4 text-sm"><ul className="space-y-3">{cartServices.map(service=><li key={service.id} className="flex justify-between gap-3"><span>{service.name}</span><span className="whitespace-nowrap">{service.discountPercent>0&&<><del className="me-1 text-muted-foreground">{formatMoney(service.originalPriceAmount,service.currency)}</del><span className="me-1 text-destructive">-{service.discountPercent}%</span></>}{formatMoney(service.priceAmount,service.currency)}</span></li>)}</ul><div className="mt-4 flex justify-between border-t border-primary/15 pt-4"><span className="text-muted-foreground">{t('Treatment time')}</span><span>{totalServiceDuration} min</span></div><div className="flex justify-between py-2 font-medium"><span>{t('Total')}</span><span>{formatMoney(totalPrice,currency)}</span></div><div className="flex justify-between py-2"><span className="text-muted-foreground">{t('Date')}</span><span>{date?new Date(`${date}T12:00:00`).toLocaleDateString(undefined,{month:'short',day:'numeric'}):t('Choose a date')}</span></div><div className="flex justify-between py-2"><span className="text-muted-foreground">{t('Time')}</span><span>{cartQuery.data?.find(item=>item.startsAt===slot)?.label||t('Choose a time')}</span></div></div>:<p className="mt-2 text-sm leading-6 text-muted-foreground">{t('Your cart is empty. Add one or more treatments to continue.')}</p>}{cartServices.length > 1 && <p className="mt-2 text-xs text-muted-foreground">{t('Includes the required space between treatments.')}</p>}<div className="mt-6 border-t border-primary/15 pt-4"><div className="flex gap-3"><ShieldCheck className="shrink-0 text-primary" size={18}/><p className="text-xs leading-5 text-muted-foreground">{t('No account needed. Your request is checked against live availability when you confirm.')}</p></div><p className="mt-4 text-[10px] leading-4 text-muted-foreground">{profile.data?.cancellationPolicy||t('Cancellation policy is a demo/setup placeholder.')}</p></div></aside>
     </div></main></>;
 }
 
@@ -624,7 +624,7 @@ function DashboardInner() {
 }
 function StatusAction({label,onClick,disabled}:{label:string;onClick:()=>void;disabled:boolean}) { return <button onClick={onClick} disabled={disabled} className="rounded-full bg-primary px-4 py-2 text-[10px] text-primary-foreground disabled:opacity-50" data-testid={`button-status-${label.toLowerCase().replaceAll(' ','-')}`}>{label}</button> }
 
-type ManagedService = { id:string; name:string; slug:string; category:string; shortDescription:string; description:string; durationMinutes:number; priceAmount:number; currency:string; imageUrl:string|null; isFeatured:boolean; isActive:boolean };
+type ManagedService = { id:string; name:string; slug:string; category:string; shortDescription:string; description:string; durationMinutes:number; priceAmount:number; discountPercent:number; currency:string; imageUrl:string|null; isFeatured:boolean; isActive:boolean };
 type ManagedCustomer = { id:string; name:string; email:string; phone:string; hasAccount:boolean; createdAt:string; updatedAt:string };
 type ManagedStaff = { id:string; displayName:string; bio:string; clerkUserId:string|null; accountEmail:string|null; accountRole:string|null; accountDisabled:boolean; isBookable:boolean; isActive:boolean; createdAt:string; updatedAt:string };
 
@@ -644,6 +644,8 @@ function ManagementMessage({error}:{error:string}) { const {t}=useLanguage(); re
 
 function ServicesManagementPanel() {
   const { t } = useLanguage();
+  const { user } = useUser();
+  const isAdmin = user?.publicMetadata?.role === 'admin';
   const fileInputRef = useRef<HTMLInputElement>(null);
   const categoriesList = [
     'Ongles',
@@ -665,6 +667,7 @@ function ServicesManagementPanel() {
     description: '',
     durationMinutes: 45,
     priceDT: 20,
+    discountPercent: 0,
     currency: 'TND',
     imageUrl: '',
     isFeatured: false,
@@ -748,6 +751,7 @@ function ServicesManagementPanel() {
       description: item.description || '',
       durationMinutes: item.durationMinutes || 30,
       priceDT: Math.round(item.priceAmount / 100),
+      discountPercent: item.discountPercent || 0,
       currency: item.currency || 'TND',
       imageUrl: item.imageUrl || '',
       isFeatured: item.isFeatured ?? false,
@@ -783,6 +787,7 @@ function ServicesManagementPanel() {
       description: form.description.trim() || form.shortDescription.trim(),
       durationMinutes: Number(form.durationMinutes),
       priceAmount: Math.round(Number(form.priceDT) * 100),
+      discountPercent: Number(form.discountPercent),
       currency: 'TND',
       imageUrl: form.imageUrl.trim() || null,
       isFeatured: form.isFeatured,
@@ -897,7 +902,7 @@ function ServicesManagementPanel() {
                         {item.shortDescription}
                       </p>
                       <div className="mt-2 flex items-center gap-3 text-xs">
-                        <span className="font-semibold text-primary">{Math.round(item.priceAmount / 100)} dt</span>
+                        <span className="font-semibold text-primary">{Math.round(item.priceAmount * (100-item.discountPercent) / 10000)} dt</span>{item.discountPercent>0&&<><del className="text-muted-foreground">{Math.round(item.priceAmount/100)} dt</del><span className="rounded-full bg-destructive/10 px-2 py-0.5 text-[10px] font-semibold text-destructive">-{item.discountPercent}%</span></>}
                         <span className="text-muted-foreground">• {item.durationMinutes} min</span>
                         <span className="text-[10px] text-muted-foreground mono">
                           {item.imageUrl ? 'Photo configurée' : 'Pas de photo'}
@@ -1127,6 +1132,8 @@ function ServicesManagementPanel() {
               </div>
             </label>
           </div>
+
+          {isAdmin && <label className="grid gap-1 text-xs font-medium">Pourcentage de remise (%)<input type="number" min="0" max="100" step="1" value={form.discountPercent} onChange={(e)=>setForm({...form,discountPercent:Number(e.target.value)})} className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm" /></label>}
 
           {/* Mettre à la une */}
           <label className="flex items-center gap-2 text-xs font-medium cursor-pointer pt-1">

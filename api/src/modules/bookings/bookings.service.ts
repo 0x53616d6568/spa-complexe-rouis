@@ -132,7 +132,7 @@ async function createGuestBookingForServices(input: NormalizedBookingInput, cler
         0,
       );
       const totalDurationMinutes = cartServices.reduce((total, item) => total + item.durationMinutes, 0) + internalBufferMinutes;
-      const totalPriceAmount = cartServices.reduce((total, item) => total + item.priceAmount, 0);
+      const totalPriceAmount = cartServices.reduce((total, item) => total + Math.round(item.priceAmount * (100 - item.discountPercent) / 100), 0);
       const serviceName = cartServices.map((item) => item.name).join(" + ");
 
       const slots = await listAvailableSlotsForServices(
@@ -241,7 +241,7 @@ async function createGuestBookingForServices(input: NormalizedBookingInput, cler
             startsAt,
             endsAt,
             durationMinutes: item.durationMinutes,
-            priceAmount: item.priceAmount,
+            priceAmount: Math.round(item.priceAmount * (100 - item.discountPercent) / 100),
             currency: item.currency,
           };
         }),

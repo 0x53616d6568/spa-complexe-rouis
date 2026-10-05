@@ -32,6 +32,8 @@ export interface Service {
   durationMinutes: number;
   /** Amount in the currency's minor unit */
   priceAmount: number;
+  originalPriceAmount: number;
+  discountPercent: number;
   currency: string;
   /** @nullable */
   imageUrl: string | null;
