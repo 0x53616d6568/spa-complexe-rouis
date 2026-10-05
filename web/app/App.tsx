@@ -26,13 +26,19 @@ import { ArrowRight, Flower2, ShieldCheck } from 'lucide-react';
 
 const queryClient = new QueryClient();
 
-const rawClerkPubKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY ?? import.meta.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY ?? 'pk_test_cGxlYXNpbmctYnVubnktOTkyMC5jbGVyay5hY2NvdW50cy5kZXYk';
+const rawClerkPubKey =
+  import.meta.env.VITE_CLERK_PUBLISHABLE_KEY ||
+  import.meta.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY ||
+  '';
 
-// Canonical Clerk key/proxy wiring: the host helper resolves custom domains and
-// proxyUrl is always passed (empty in development by design).
-const clerkPubKey = hasValidClerkKey
-  ? publishableKeyFromHost(window.location.hostname, rawClerkPubKey)
-  : undefined;
+let clerkPubKey: string | undefined = undefined;
+if (hasValidClerkKey && rawClerkPubKey) {
+  try {
+    clerkPubKey = publishableKeyFromHost(window.location.hostname, rawClerkPubKey) || rawClerkPubKey;
+  } catch {
+    clerkPubKey = rawClerkPubKey;
+  }
+}
 const clerkProxyUrl = import.meta.env.VITE_CLERK_PROXY_URL;
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, '');
 
