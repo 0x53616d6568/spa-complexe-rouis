@@ -13,21 +13,29 @@ if (!databaseUrl) {
 const sql = `
   CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
-  CREATE TYPE IF NOT EXISTS booking_status AS ENUM (
-    'pending',
-    'confirmed',
-    'checked_in',
-    'completed',
-    'cancelled',
-    'no_show'
-  );
+  DO $$ BEGIN
+    CREATE TYPE booking_status AS ENUM (
+      'pending',
+      'confirmed',
+      'checked_in',
+      'completed',
+      'cancelled',
+      'no_show'
+    );
+  EXCEPTION
+    WHEN duplicate_object THEN null;
+  END $$;
 
-  CREATE TYPE IF NOT EXISTS notification_status AS ENUM (
-    'queued',
-    'sending',
-    'sent',
-    'failed'
-  );
+  DO $$ BEGIN
+    CREATE TYPE notification_status AS ENUM (
+      'queued',
+      'sending',
+      'sent',
+      'failed'
+    );
+  EXCEPTION
+    WHEN duplicate_object THEN null;
+  END $$;
 
   CREATE TABLE IF NOT EXISTS spa_settings (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
