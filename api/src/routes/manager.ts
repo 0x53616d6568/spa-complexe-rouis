@@ -131,7 +131,9 @@ router.post("/manager/services", requireSpaPermission("create_edit_services"), a
   try {
     const parsed = serviceBody.safeParse(request.body);
     if (!parsed.success) throw new HttpError(400, "Provide valid service details.");
-    response.status(201).json(await createManagedService(parsed.data, actor(response)));
+    const currentActor = actor(response);
+    if ((parsed.data.discountPercent ?? 0) > 0 && currentActor.role !== "admin") throw new HttpError(403, "Only an admin can apply service discounts.");
+    response.status(201).json(await createManagedService(parsed.data, currentActor));
   } catch (error) { sendRouteError(request, response, error); }
 });
 
@@ -139,7 +141,9 @@ router.patch("/manager/services/:id", requireSpaPermission("create_edit_services
   try {
     const parsed = updateServiceBody.safeParse(request.body);
     if (!parsed.success) throw new HttpError(400, "Provide valid service details.");
-    response.json(await updateManagedService(routeId(request.params.id), parsed.data, actor(response)));
+    const currentActor = actor(response);
+    if (parsed.data.discountPercent !== undefined && currentActor.role !== "admin") throw new HttpError(403, "Only an admin can change service discounts.");
+    response.json(await updateManagedService(routeId(request.params.id), parsed.data, currentActor));
   } catch (error) { sendRouteError(request, response, error); }
 });
 

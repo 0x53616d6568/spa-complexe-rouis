@@ -75,6 +75,7 @@ const sql = `
     buffer_before_minutes INTEGER NOT NULL DEFAULT 0,
     buffer_after_minutes INTEGER NOT NULL DEFAULT 0,
     price_amount INTEGER NOT NULL,
+    discount_percent INTEGER NOT NULL DEFAULT 0 CHECK (discount_percent BETWEEN 0 AND 100),
     currency TEXT NOT NULL DEFAULT 'NGN',
     image_url TEXT,
     is_featured BOOLEAN NOT NULL DEFAULT FALSE,
@@ -82,6 +83,10 @@ const sql = `
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
   );
+
+  ALTER TABLE services ADD COLUMN IF NOT EXISTS discount_percent INTEGER NOT NULL DEFAULT 0;
+  ALTER TABLE services DROP CONSTRAINT IF EXISTS services_discount_percent_check;
+  ALTER TABLE services ADD CONSTRAINT services_discount_percent_check CHECK (discount_percent BETWEEN 0 AND 100);
 
   CREATE TABLE IF NOT EXISTS staff_profiles (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -158,6 +163,23 @@ const sql = `
 
   CREATE INDEX IF NOT EXISTS bookings_staff_idx
     ON bookings (staff_id, starts_at);
+
+  CREATE TABLE IF NOT EXISTS booking_service_items (
+    booking_id UUID NOT NULL REFERENCES bookings(id) ON DELETE CASCADE,
+    position INTEGER NOT NULL,
+    service_id UUID NOT NULL REFERENCES services(id),
+    service_name TEXT NOT NULL,
+    starts_at TIMESTAMPTZ NOT NULL,
+    ends_at TIMESTAMPTZ NOT NULL,
+    duration_minutes INTEGER NOT NULL,
+    price_amount INTEGER NOT NULL,
+    discount_percent INTEGER NOT NULL DEFAULT 0 CHECK (discount_percent BETWEEN 0 AND 100),
+    currency TEXT NOT NULL,
+    PRIMARY KEY (booking_id, position)
+  );
+
+  CREATE INDEX IF NOT EXISTS booking_service_items_service_idx
+    ON booking_service_items (service_id);
 
   CREATE TABLE IF NOT EXISTS booking_status_history (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

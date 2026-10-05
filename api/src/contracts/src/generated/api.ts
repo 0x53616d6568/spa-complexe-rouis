@@ -46,6 +46,8 @@ export const ListServicesResponseItem = zod.object({
   "description": zod.string(),
   "durationMinutes": zod.number().int(),
   "priceAmount": zod.number().int().describe('Amount in the currency\'s minor unit'),
+  "originalPriceAmount": zod.number().int(),
+  "discountPercent": zod.number().int().min(0).max(100),
   "currency": zod.string(),
   "imageUrl": zod.string().nullable(),
   "isFeatured": zod.boolean()
@@ -69,6 +71,8 @@ export const GetServiceResponse = zod.object({
   "description": zod.string(),
   "durationMinutes": zod.number().int(),
   "priceAmount": zod.number().int().describe('Amount in the currency\'s minor unit'),
+  "originalPriceAmount": zod.number().int(),
+  "discountPercent": zod.number().int().min(0).max(100),
   "currency": zod.string(),
   "imageUrl": zod.string().nullable(),
   "isFeatured": zod.boolean()
@@ -109,6 +113,17 @@ export const createBookingBodyCustomerNoteMax = 1000;
 
 export const CreateBookingBody = zod.object({
   "serviceId": zod.string().uuid(),
+  "startsAt": zod.coerce.date(),
+  "customerName": zod.string().min(createBookingBodyCustomerNameMin).max(createBookingBodyCustomerNameMax),
+  "customerEmail": zod.string().email().max(createBookingBodyCustomerEmailMax),
+  "customerPhone": zod.string().min(createBookingBodyCustomerPhoneMin).max(createBookingBodyCustomerPhoneMax),
+  "customerNote": zod.string().max(createBookingBodyCustomerNoteMax).nullish(),
+  "policyAccepted": zod.literal(true),
+  "idempotencyKey": zod.string().uuid()
+})
+
+export const CreateBookingCartBody = zod.object({
+  "serviceIds": zod.array(zod.string().uuid()).min(1).max(8),
   "startsAt": zod.coerce.date(),
   "customerName": zod.string().min(createBookingBodyCustomerNameMin).max(createBookingBodyCustomerNameMax),
   "customerEmail": zod.string().email().max(createBookingBodyCustomerEmailMax),
@@ -255,5 +270,4 @@ export const ListAuditLogsResponseItem = zod.object({
   "createdAt": zod.coerce.date()
 })
 export const ListAuditLogsResponse = zod.array(ListAuditLogsResponseItem)
-
 

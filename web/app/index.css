@@ -5,6 +5,17 @@
 @import 'tw-animate-css';
 @plugin "@tailwindcss/typography";
 
+html,
+body,
+#root {
+  width: 100%;
+  min-width: 0;
+}
+
+body {
+  overflow-x: clip;
+}
+
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {

@@ -21,15 +21,33 @@ import {
   getListManagerBookingsQueryKey,
   getGetManagerDashboardQueryKey,
 } from '@workspace/api-client-react';
-import type { AuditEvent, BookingConfirmation, ManagerBooking, Service, StaffProfile } from '@workspace/api-client-react';
+import type { AuditEvent, AvailabilitySlot, BookingConfirmation, ManagerBooking, Service, StaffProfile } from '@workspace/api-client-react';
 import { StaffManagementPanel } from '@/components/StaffManagementPanel';
 import {
-  ArrowRight, ArrowUpRight, CalendarDays, Check, ChevronLeft, Clock3, Flower2, HeartHandshake,
-  LoaderCircle, Menu, Moon, Pencil, Plus, RefreshCw, ShieldCheck, Sparkles, Sun, Trash2, Users, X,
+  ArrowRight, ArrowUpRight, CalendarDays, Check, ChevronDown, ChevronLeft, ChevronRight, Clock3, Flower2, HeartHandshake,
+  LoaderCircle, Menu, Moon, Pencil, Plus, RefreshCw, ShieldCheck, ShoppingBag, Sparkles, Sun, Trash2, Users, X,
 } from 'lucide-react';
 
+const BOOKING_CART_STORAGE_KEY = 'stillroom-booking-cart';
+const BOOKING_CART_EVENT = 'stillroom-booking-cart-change';
+const COOKIE_CONSENT_KEY = 'complexe-rouis-cookie-consent';
+
+function readStoredCart(): string[] {
+  try {
+    const value = JSON.parse(localStorage.getItem(BOOKING_CART_STORAGE_KEY) || '[]');
+    return Array.isArray(value) ? value.filter((id): id is string => typeof id === 'string').slice(0, 8) : [];
+  } catch { return []; }
+}
+
+function saveStoredCart(serviceIds: string[]) {
+  try {
+    localStorage.setItem(BOOKING_CART_STORAGE_KEY, JSON.stringify(serviceIds.slice(0, 8)));
+    window.dispatchEvent(new Event(BOOKING_CART_EVENT));
+  } catch { /* Cart still works for this page if storage is unavailable. */ }
+}
+
 function Meta({ title, description }: { title: string; description: string }) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   useEffect(() => {
     document.title = `${t(title)} · Complexe Rouis`;
     const meta = document.querySelector('meta[name="description"]');
@@ -54,13 +72,36 @@ function HealthPip() {
 
 export function SiteShell({ children }: { children: ReactNode }) {
   const [open, setOpen] = useState(false);
+  const [cartCount, setCartCount] = useState(() => readStoredCart().length);
+  const [cookieChoice, setCookieChoice] = useState<'accepted' | 'rejected' | null>(null);
+  const [showCookieDetails, setShowCookieDetails] = useState(false);
   const profile = useGetSpaProfile();
   const spa = profile.data;
-  const [, setLocation] = useLocation();
+  const [currentLocation, setLocation] = useLocation();
   const { signOut } = useClerk();
   const { user } = useUser();
   const { language, setLanguage, t } = useLanguage();
   const { resolvedTheme, setTheme } = useTheme();
+  useEffect(() => {
+    const updateCartCount = () => setCartCount(readStoredCart().length);
+    window.addEventListener('storage', updateCartCount);
+    window.addEventListener(BOOKING_CART_EVENT, updateCartCount);
+    return () => {
+      window.removeEventListener('storage', updateCartCount);
+      window.removeEventListener(BOOKING_CART_EVENT, updateCartCount);
+    };
+  }, []);
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(COOKIE_CONSENT_KEY);
+      if (saved === 'accepted' || saved === 'rejected') setCookieChoice(saved);
+    } catch { /* Consent prompt remains available if storage is disabled. */ }
+  }, []);
+  const saveCookieChoice = (choice: 'accepted' | 'rejected') => {
+    try { localStorage.setItem(COOKIE_CONSENT_KEY, choice); } catch { /* Keep the choice for this page view. */ }
+    setCookieChoice(choice);
+    setShowCookieDetails(false);
+  };
   const role = typeof user?.publicMetadata?.role === 'string' ? user.publicMetadata.role : null;
   const isStaffVisible = role === 'manager' || role === 'admin';
   const nav = [
@@ -71,16 +112,16 @@ export function SiteShell({ children }: { children: ReactNode }) {
     <div className="border-b border-border/70 bg-secondary/65 px-4 py-2 text-center text-[11px] tracking-[.16em] text-muted-foreground">
       Ouvert 7j/7 · 09:00 – 19:00 · Complexe Rouis d'Esthétique
     </div>
-    <header className="sticky top-0 z-40 border-b border-border/70 bg-background/95 backdrop-blur-md">
-      <div className="mx-auto flex h-[76px] max-w-[1320px] items-center justify-between px-5 lg:px-10">
-        <Link href="/" className="flex items-center gap-3" data-testid="link-brand">
-          <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-primary text-primary-foreground"><Flower2 size={21}/></span>
-          <span><span className="serif block text-[22px] leading-[.9]">Complexe Rouis</span><span className="mono mt-1 block text-[8px] tracking-[.2em] text-muted-foreground">{t('A NEIGHBORHOOD PAUSE')}</span></span>
+    <header className="relative z-40 border-b border-border/70 bg-background/95 md:sticky md:top-0 md:backdrop-blur-md">
+      <div className="mx-auto flex h-[76px] min-w-0 max-w-[1320px] items-center justify-between gap-2 px-3 sm:px-5 lg:px-10">
+        <Link href="/" className="flex min-w-0 shrink items-center gap-2 sm:gap-3" data-testid="link-brand">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-primary text-primary-foreground"><Flower2 size={21}/></span>
+          <span className="min-w-0"><span className="serif block truncate text-[18px] leading-[.9] sm:text-[22px]">Complexe Rouis</span><span className="mono mt-1 hidden truncate text-[8px] tracking-[.2em] text-muted-foreground min-[370px]:block">{t('A NEIGHBORHOOD PAUSE')}</span></span>
         </Link>
         <nav className="hidden items-center gap-5 lg:gap-8 md:flex">
           {nav.map(item => <Link key={item.href} href={item.href} className="text-[13px] text-foreground/75 transition hover:text-primary" data-testid={`link-nav-${item.label.toLowerCase().replaceAll(' ','-')}`}>{item.label}</Link>)}
         </nav>
-        <div className="flex shrink-0 items-center gap-3">
+        <div className="flex shrink-0 items-center gap-1.5 sm:gap-3">
           {user ? (
             <button
               type="button"
@@ -93,23 +134,27 @@ export function SiteShell({ children }: { children: ReactNode }) {
           ) : (
             <Link href="/sign-in" className="hidden whitespace-nowrap ps-3 text-[13px] text-foreground/70 hover:text-primary sm:block" data-testid="link-sign-in">{t('Sign in')}</Link>
           )}
+          <Link href="/book" aria-label={`${t('Cart')}, ${cartCount}`} title={t('Cart')} className="relative hidden items-center gap-1.5 rounded-full border border-border px-2.5 py-2 text-xs text-foreground/80 transition hover:border-primary hover:text-primary md:inline-flex" data-testid="link-header-cart"><ShoppingBag size={16}/><span>{t('Cart')}</span><span className="grid min-h-5 min-w-5 place-items-center rounded-full bg-primary px-1 text-[10px] font-semibold text-primary-foreground">{cartCount}</span></Link>
           <button className="hidden rounded-full bg-primary px-5 py-3 text-xs font-semibold tracking-wide text-primary-foreground transition hover:-translate-y-0.5 md:block" onClick={() => setLocation('/book')} data-testid="button-header-book">{t('Find a time')} <ArrowRight className="ms-2 inline" size={14}/></button>
-          <select aria-label={t('Language')} value={language} onChange={event=>setLanguage(event.target.value as 'en'|'fr'|'ar')} className="max-w-[104px] rounded-full border border-border bg-card px-2 py-2 text-xs"><option value="en">English</option><option value="fr">Fran&#231;ais</option><option value="ar">&#1575;&#1604;&#1593;&#1585;&#1576;&#1610;&#1577;</option></select>
-          <button type="button" onClick={()=>setTheme(resolvedTheme==='dark'?'light':'dark')} className="rounded-full border border-border p-2" aria-label={t(resolvedTheme==='dark'?'Switch to light mode':'Switch to dark mode')} title={t(resolvedTheme==='dark'?'Switch to light mode':'Switch to dark mode')}>{resolvedTheme==='dark'?<Sun size={16}/>:<Moon size={16}/>}</button>
+          <button aria-label={t('Find a time')} className="inline-flex shrink-0 items-center gap-1 rounded-full bg-primary px-2.5 py-2 text-[10px] font-semibold text-primary-foreground min-[370px]:px-3 min-[370px]:text-[11px] md:hidden" onClick={() => setLocation('/book')} data-testid="button-header-book-mobile"><span className="truncate">{t('Find a time')}</span><ArrowRight size={13} className="shrink-0"/></button>
+          <select aria-label={t('Language')} value={language} onChange={event=>setLanguage(event.target.value as 'en'|'fr'|'ar')} className="hidden max-w-[104px] rounded-full border border-border bg-card px-2 py-2 text-xs md:block"><option value="en">English</option><option value="fr">Fran&#231;ais</option><option value="ar">&#1575;&#1604;&#1593;&#1585;&#1576;&#1610;&#1577;</option></select>
+          <button type="button" onClick={()=>setTheme(resolvedTheme==='dark'?'light':'dark')} className="hidden rounded-full border border-border p-2 md:inline-flex" aria-label={t(resolvedTheme==='dark'?'Switch to light mode':'Switch to dark mode')} title={t(resolvedTheme==='dark'?'Switch to light mode':'Switch to dark mode')}>{resolvedTheme==='dark'?<Sun size={16}/>:<Moon size={16}/>}</button>
           <button className="rounded-full p-2 md:hidden" onClick={() => setOpen(!open)} aria-label={open ? t('Close menu') : t('Open menu')} data-testid="button-mobile-menu">{open ? <X size={21}/> : <Menu size={21}/>}</button>
         </div>
       </div>
-      {open && <nav className="grid gap-1 border-t border-border px-5 py-3 md:hidden">{nav.map(item => <Link key={item.href} onClick={() => setOpen(false)} href={item.href} className="rounded-lg px-3 py-3 text-sm hover:bg-secondary">{item.label}</Link>)}{user ? <button type="button" onClick={() => void signOut({ redirectUrl: window.location.origin + '/sign-in' })} className="rounded-lg bg-secondary px-3 py-3 text-start text-sm">{t('Sign out')}</button> : <Link onClick={() => setOpen(false)} href="/sign-in" className="rounded-lg bg-secondary px-3 py-3 text-sm">{t('Sign in')}</Link>}<Link onClick={() => setOpen(false)} href="/book" className="rounded-lg bg-primary px-3 py-3 text-sm text-primary-foreground">{t('Book an appointment')}</Link></nav>}
+      {open && <nav className="grid max-h-[calc(100dvh-8rem)] w-full gap-1 overflow-y-auto overscroll-contain border-t border-border px-4 py-3 md:hidden"><div className="flex items-center justify-between gap-3 px-3 py-2"><label htmlFor="mobile-language" className="text-sm">{t('Language')}</label><select id="mobile-language" value={language} onChange={event=>setLanguage(event.target.value as 'en'|'fr'|'ar')} className="max-w-[65%] rounded-full border border-border bg-card px-3 py-2 text-xs"><option value="en">English</option><option value="fr">Fran&#231;ais</option><option value="ar">&#1575;&#1604;&#1593;&#1585;&#1576;&#1610;&#1577;</option></select></div><button type="button" onClick={()=>setTheme(resolvedTheme==='dark'?'light':'dark')} className="flex items-center gap-2 rounded-lg px-3 py-3 text-start text-sm hover:bg-secondary">{resolvedTheme==='dark'?<Sun size={16}/>:<Moon size={16}/>} {t(resolvedTheme==='dark'?'Switch to light mode':'Switch to dark mode')}</button>{nav.map(item => <Link key={item.href} onClick={() => setOpen(false)} href={item.href} className="rounded-lg px-3 py-3 text-sm hover:bg-secondary">{item.label}</Link>)}<Link onClick={() => setOpen(false)} href="/book" className="rounded-lg border border-border px-3 py-3 text-sm">{t('Cart')} ({cartCount})</Link>{user ? <button type="button" onClick={() => void signOut({ redirectUrl: window.location.origin + '/sign-in' })} className="rounded-lg bg-secondary px-3 py-3 text-start text-sm">{t('Sign out')}</button> : <Link onClick={() => setOpen(false)} href="/sign-in" className="rounded-lg bg-secondary px-3 py-3 text-sm">{t('Sign in')}</Link>}</nav>}
     </header>
+    <Link href="/book" aria-label={`${t('Cart')}, ${cartCount}`} title={t('Cart')} className={`fixed bottom-4 end-4 z-40 inline-flex h-12 items-center gap-2 rounded-full bg-primary px-4 text-sm text-primary-foreground shadow-lg md:hidden ${open || currentLocation === '/book' ? 'hidden' : ''}`} data-testid="link-floating-cart"><ShoppingBag size={18}/><span>{t('Cart')}</span><span className="grid min-h-5 min-w-5 place-items-center rounded-full bg-background px-1 text-[10px] font-semibold text-primary">{cartCount}</span></Link>
     {children}
     <footer className="bg-primary px-5 py-12 text-primary-foreground md:px-10">
       <div className="mx-auto grid max-w-[1320px] gap-10 md:grid-cols-[1.3fr_1fr_1fr]">
         <div><div className="serif text-4xl">{t('A little room to breathe.')}</div><p className="mt-3 max-w-sm text-sm leading-6 text-primary-foreground/70">{t('A neighborhood place to set the day down for a while.')}</p><div className="mt-5"><HealthPip/></div></div>
-        <div><p className="mono text-[10px] tracking-[.18em] text-primary-foreground/55">{t('FIND YOUR WAY')}</p><div className="mt-4 grid gap-3 text-sm"><Link href="/services">{t('Treatments')}</Link><Link href="/policies">{t('Visit information')}</Link><Link href="/privacy">{t('Privacy')}</Link><Link href="/admin/audit-logs">{t('Owner access')}</Link></div></div>
+        <div><p className="mono text-[10px] tracking-[.18em] text-primary-foreground/55">{t('FIND YOUR WAY')}</p><div className="mt-4 grid gap-3 text-sm"><Link href="/services">{t('Treatments')}</Link><Link href="/policies">{t('Visit information')}</Link><Link href="/privacy">{t('Privacy')}</Link><button type="button" onClick={()=>{setCookieChoice(null);setShowCookieDetails(true)}} className="w-fit text-start hover:underline">{t('Cookie settings')}</button><Link href="/admin/audit-logs">{t('Owner access')}</Link></div></div>
         <div><p className="mono text-[10px] tracking-[.18em] text-primary-foreground/55">{t('CONTACT')}</p><p className="mt-4 text-sm">{spa?.address || 'Complexe Rouis'}<br/>{spa ? `${spa.city}, ${spa.region}` : 'Tunisie'}</p><p className="mt-3 text-sm">{spa?.contactEmail || 'contact@complexerouis.com'}</p><p className="mt-1 text-sm">{spa?.contactPhone || '+216 -- --- ---'}</p></div>
       </div>
       <div className="mx-auto mt-10 max-w-[1320px] border-t border-primary-foreground/20 pt-5 text-[10px] text-primary-foreground/55">© Complexe Rouis d'esthétique — Tous droits réservés.</div>
     </footer>
+    {cookieChoice === null && <section aria-label={t('Cookie consent')} aria-live="polite" className="fixed inset-x-3 bottom-3 z-[70] mx-auto max-w-3xl rounded-2xl border border-border bg-card p-5 text-card-foreground shadow-2xl sm:inset-x-6 sm:bottom-6 sm:p-6" data-testid="cookie-consent-banner"><div className="flex items-start gap-3"><span className="mt-0.5 rounded-full bg-secondary p-2 text-primary"><ShieldCheck size={18}/></span><div className="min-w-0 flex-1"><h2 className="serif text-2xl">{t('Your privacy matters')}</h2><p className="mt-2 text-sm leading-6 text-muted-foreground">{t('We use essential cookies and browser storage for sign-in, your cart, language, and booking flow. We do not currently use analytics or advertising cookies.')}</p>{showCookieDetails&&<div className="mt-3 rounded-xl bg-secondary/70 p-3 text-xs leading-5 text-muted-foreground"><p><strong className="text-foreground">{t('Essential storage')}</strong> — {t('Required for sign-in, cart, language, and booking features; always active.')}</p><p className="mt-2"><strong className="text-foreground">{t('Optional tracking')}</strong> — {t('No analytics or advertising trackers are currently enabled.')}</p><Link href="/privacy" className="mt-2 inline-block underline">{t('Read our privacy information')}</Link></div>}<div className="mt-4 flex flex-wrap items-center gap-2"><button type="button" onClick={()=>saveCookieChoice('accepted')} className="rounded-full bg-primary px-4 py-2.5 text-xs font-medium text-primary-foreground">{t('Accept all')}</button><button type="button" onClick={()=>saveCookieChoice('rejected')} className="rounded-full border border-border px-4 py-2.5 text-xs font-medium hover:bg-secondary">{t('Reject optional')}</button><button type="button" onClick={()=>setShowCookieDetails(value=>!value)} className="rounded-full px-3 py-2.5 text-xs text-muted-foreground underline underline-offset-2">{showCookieDetails?t('Hide details'):t('Cookie details')}</button></div></div></div></section>}
   </div>;
 }
 
@@ -163,7 +208,7 @@ function DynamicServiceCard({ service }: { service: Service }) {
       <div className="px-5 pb-5 pt-0">
         <div className="flex items-center justify-between border-t border-border/70 pt-4 text-xs">
           <div className="flex flex-col">
-            <span className="font-semibold text-primary text-sm">{formatMoney(service.priceAmount, service.currency)}</span>
+            <span className="flex flex-col items-end"><span className="font-semibold text-primary text-sm">{formatMoney(service.priceAmount, service.currency)}</span>{service.discountPercent>0&&<span className="text-[10px]"><del className="me-1 text-muted-foreground">{formatMoney(service.originalPriceAmount,service.currency)}</del><span className="font-semibold text-destructive">-{service.discountPercent}%</span></span>}</span>
             <span className="text-[10px] text-muted-foreground">{service.durationMinutes} min</span>
           </div>
           <button
@@ -382,7 +427,7 @@ export function ServiceDetailPage({ slug }: { slug: string }) {
                 </div>
                 <div>
                   <p className="mono text-[9px] tracking-[.16em] text-muted-foreground">{t('PRICE')}</p>
-                  <p className="mt-2 text-sm font-semibold text-primary">{formatMoney(s.priceAmount, s.currency)}</p>
+                  <p className="mt-2 flex flex-wrap items-center gap-2 text-sm font-semibold text-primary">{formatMoney(s.priceAmount, s.currency)}{s.discountPercent>0&&<><del className="text-xs font-normal text-muted-foreground">{formatMoney(s.originalPriceAmount,s.currency)}</del><span className="rounded-full bg-destructive/10 px-2 py-1 text-[10px] text-destructive">-{s.discountPercent}%</span></>}</p>
                 </div>
               </div>
               <button
@@ -404,104 +449,169 @@ function makeIdempotencyKey() { return typeof crypto !== 'undefined' && 'randomU
 
 export function BookingPage() {
   const { user } = useUser();
-  const { t } = useLanguage();
-  const [,setLocation]=useLocation();
-  const queryClient=useQueryClient();
-  const services=useListServices();
-  const profile=useGetSpaProfile();
-  const params=new URLSearchParams(window.location.search);
-  const [serviceId,setServiceId]=useState(params.get('service')||'');
-  const [date,setDate]=useState(dateLocal(new Date()));
-  const [slot,setSlot]=useState('');
-  const [name,setName]=useState('');
-  const [email,setEmail]=useState('');
-  const [phone,setPhone]=useState('');
-  const [note,setNote]=useState('');
-  const [accepted,setAccepted]=useState(false);
-  const [formError,setFormError]=useState('');
-  const idempotency=useRef<{signature:string;key:string}|null>(null);
+  const { t, language } = useLanguage();
+  const [, setLocation] = useLocation();
+  const queryClient = useQueryClient();
+  const services = useListServices();
+  const profile = useGetSpaProfile();
+  const params = new URLSearchParams(window.location.search);
+  const initialServiceId = params.get('service') || '';
+  const [serviceToAdd, setServiceToAdd] = useState('');
+  const [servicePickerOpen, setServicePickerOpen] = useState(false);
+  const servicePickerRef = useRef<HTMLDivElement>(null);
+  const [cartServiceIds, setCartServiceIds] = useState<string[]>(() => {
+    const storedCart = readStoredCart();
+    return initialServiceId
+      ? [initialServiceId, ...storedCart.filter(id => id !== initialServiceId)].slice(0, 8)
+      : storedCart;
+  });
+  const [date, setDate] = useState(dateLocal(new Date()));
+  const [calendarMonth, setCalendarMonth] = useState(() => {
+    const today = new Date();
+    return new Date(today.getFullYear(), today.getMonth(), 1);
+  });
+  const [slot, setSlot] = useState('');
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
+  const [note, setNote] = useState('');
+  const [accepted, setAccepted] = useState(false);
+  const [formError, setFormError] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const idempotency = useRef<{ signature: string; key: string } | null>(null);
+  const cartQuery = useQuery<AvailabilitySlot[]>({
+    queryKey: ['/api/availability/cart', { serviceIds: cartServiceIds, date }],
+    enabled: cartServiceIds.length > 0 && !!date,
+    queryFn: async () => {
+      const search = new URLSearchParams({ serviceIds: cartServiceIds.join(','), date });
+      const response = await fetch(`/api/availability/cart?${search.toString()}`);
+      const payload = await response.json().catch(() => null) as AvailabilitySlot[] | { error?: string } | null;
+      if (!response.ok) throw new Error(payload && !Array.isArray(payload) ? payload.error || 'Availability could not be loaded.' : 'Availability could not be loaded.');
+      return (payload || []) as AvailabilitySlot[];
+    },
+  });
+  const cartServices = cartServiceIds.map(id => services.data?.find(item => item.id === id)).filter((item): item is Service => Boolean(item));
+  const totalServiceDuration = cartServices.reduce((sum, item) => sum + item.durationMinutes, 0);
+  const totalPrice = cartServices.reduce((sum, item) => sum + item.priceAmount, 0);
+  const currency = cartServices[0]?.currency || 'NGN';
+  const calendarLocale = language === 'ar' ? 'ar' : language === 'fr' ? 'fr-FR' : 'en-US';
+  const calendarDays = useMemo(() => {
+    const firstWeekday = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth(), 1).getDay();
+    const daysInMonth = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() + 1, 0).getDate();
+    return [...Array(firstWeekday).fill(null), ...Array.from({ length: daysInMonth }, (_, index) => index + 1)];
+  }, [calendarMonth]);
+  const selectedDate = date ? new Date(`${date}T12:00:00`) : null;
+  const todayDate = dateLocal(new Date());
+  const monthStart = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth(), 1);
+  const canGoToPreviousMonth = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth(), 1) > new Date(new Date().getFullYear(), new Date().getMonth(), 1);
 
-  const selected = Array.isArray(services.data) ? services.data.find(s => s.id === serviceId || s.slug === serviceId) : undefined;
-  const effectiveServiceId = selected?.id || serviceId;
+  useEffect(() => { saveStoredCart(cartServiceIds); }, [cartServiceIds]);
 
   useEffect(() => {
-    const p = new URLSearchParams(window.location.search);
-    const s = p.get('service');
-    if (s && s !== serviceId) {
-      setServiceId(s);
-      setSlot('');
-    }
-  }, [window.location.search]);
-
-  useEffect(() => {
-    if (selected && serviceId !== selected.id) {
-      setServiceId(selected.id);
-    }
-  }, [selected, serviceId]);
-
-  const query=useGetAvailability({serviceId: effectiveServiceId, date},{query:{enabled:!!effectiveServiceId&&!!date,queryKey:['/api/availability',{serviceId: effectiveServiceId, date}]} });
-  const create=useCreateBooking();
+    if (!servicePickerOpen) return;
+    const handlePointerDown = (event: PointerEvent) => {
+      if (!servicePickerRef.current?.contains(event.target as Node)) setServicePickerOpen(false);
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setServicePickerOpen(false);
+    };
+    document.addEventListener('pointerdown', handlePointerDown);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('pointerdown', handlePointerDown);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [servicePickerOpen]);
 
   useEffect(() => {
     const savedProfile = readStoredCustomerProfile();
     const clerkName = user ? [user.firstName, user.lastName].filter(Boolean).join(' ').trim() : '';
     const clerkEmail = user?.primaryEmailAddress?.emailAddress ?? savedProfile.email;
     const clerkPhone = user?.phoneNumbers?.[0]?.phoneNumber ?? savedProfile.phone;
-
     const nextName = clerkName || savedProfile.name;
     const nextEmail = clerkEmail || savedProfile.email;
     const nextPhone = clerkPhone || savedProfile.phone;
-
     if (nextName && !name) setName(nextName);
     if (nextEmail && !email) setEmail(nextEmail);
     if (nextPhone && !phone) setPhone(nextPhone);
-
     saveStoredCustomerProfile({ name: nextName || name, email: nextEmail || email, phone: nextPhone || phone });
   }, [user, name, email, phone]);
 
-  useEffect(() => {
-    saveStoredCustomerProfile({ name, email, phone });
-  }, [name, email, phone]);
+  useEffect(() => { saveStoredCustomerProfile({ name, email, phone }); }, [name, email, phone]);
 
-  const submit=(event:FormEvent)=>{event.preventDefault();setFormError('');
-    if(!selected){setFormError(t('Choose a treatment to continue.'));return}
-    if(!slot){setFormError(t('Choose an available appointment time.'));return}
-    if(name.trim().length<2){setFormError(t('Enter your name so the team knows who to welcome.'));return}
-    if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){setFormError(t('Enter a valid email address.'));return}
-    if(phone.replace(/\D/g,'').length<7){setFormError(t('Enter a phone number with at least 7 digits.'));return}
-    if(!accepted){setFormError(t('Please accept the visit policy to continue.'));return}
-    const signature=JSON.stringify([serviceId,slot,name.trim(),email.trim(),phone.trim(),note.trim()]);
-    if(idempotency.current?.signature!==signature) idempotency.current={signature,key:makeIdempotencyKey()};
-    create.mutate({data:{serviceId,startsAt:slot,customerName:name.trim(),customerEmail:email.trim(),customerPhone:phone.trim(),customerNote:note.trim()||undefined,policyAccepted:true,idempotencyKey:idempotency.current.key}},{
-      onSuccess:(confirmation)=>{
-        const history = readStoredBookingHistory();
-        const nextHistory: HistoryEntry[] = [{
-          id: confirmation.bookingReference,
-          bookingReference: confirmation.bookingReference,
-          serviceName: confirmation.serviceName,
-          startsAt: confirmation.startsAt,
-          status: confirmation.status,
-          priceAmount: confirmation.priceAmount,
-          currency: confirmation.currency,
-        }, ...history.filter(entry => entry.bookingReference !== confirmation.bookingReference)];
-        saveStoredBookingHistory(nextHistory);
-        saveStoredCustomerProfile({ name: name.trim(), email: email.trim(), phone: phone.trim() });
-        sessionStorage.setItem('stillroom-confirmation',JSON.stringify(confirmation));
-        void queryClient.invalidateQueries({queryKey:getListManagerBookingsQueryKey()});
-        void queryClient.invalidateQueries({queryKey:getGetManagerDashboardQueryKey()});
-        setLocation('/booking/confirmed');
-      },
-      onError:(error)=>{const e=error as {status?:number;message?:string};setFormError(e.status===409?t('Choose another available appointment time.'):e.message||t('Your booking could not be completed. Please try again.'));void query.refetch();}
-    });
+  const addToCart = () => {
+    setFormError('');
+    if (!serviceToAdd) { setFormError(t('Choose a treatment to continue.')); return; }
+    if (cartServiceIds.includes(serviceToAdd)) { setFormError(t('That treatment is already in your cart.')); return; }
+    if (cartServiceIds.length >= 8) { setFormError(t('Your cart can contain up to eight treatments.')); return; }
+    setCartServiceIds(current => [...current, serviceToAdd]);
+    setServiceToAdd('');
+    setSlot('');
   };
-  return <><Meta title="Book a visit" description="Choose a treatment and a real available appointment time."/><main className="page-enter mx-auto max-w-[1180px] px-5 py-12 md:px-10 md:py-16"><div className="mb-10"><p className="mono text-[10px] tracking-[.2em] text-primary">BOOK WITHOUT AN ACCOUNT</p><h1 className="serif mt-3 text-5xl md:text-6xl">Make it your time.</h1><p className="mt-3 text-sm text-muted-foreground">Choose a service and available time, then leave the rest to us.</p></div><div className="grid gap-8 lg:grid-cols-[1fr_350px]"><form onSubmit={submit} className="space-y-8 rounded-[1.5rem] border border-border bg-card p-5 md:p-8">
-    <section><StepLabel n="01" text="Choose a treatment"/><select value={serviceId} onChange={e=>{setServiceId(e.target.value);setSlot('')}} className="mt-4 w-full rounded-xl border border-input bg-background px-4 py-3.5 text-sm" data-testid="select-booking-service"><option value="">{t('Select a treatment')}</option>{(Array.isArray(services.data)?services.data:[]).map(s=><option value={s.id} key={s.id}>{s.name} · {s.durationMinutes} min · {formatMoney(s.priceAmount,s.currency)}</option>)}</select>{services.isLoading&&<p className="mt-2 text-xs text-muted-foreground">Loading current treatments…</p>}{services.isError&&<button type="button" onClick={()=>void services.refetch()} className="mt-2 text-xs underline">Could not load treatments — retry</button>}</section>
-    <section><StepLabel n="02" text="Pick a day & time"/><input type="date" min={dateLocal(new Date())} value={date} onChange={e=>{setDate(e.target.value);setSlot('')}} className="mt-4 rounded-xl border border-input bg-background px-4 py-3 text-sm" data-testid="input-booking-date"/>{serviceId&&<div className="mt-4">{query.isLoading?<div className="flex gap-2">{[1,2,3,4].map(i=><span key={i} className="h-10 w-20 animate-pulse rounded-full bg-secondary"/>)}</div>:query.isError?<div className="rounded-xl bg-secondary p-4 text-sm">Availability could not be loaded. <button type="button" onClick={()=>void query.refetch()} className="underline">Try again</button></div>:Array.isArray(query.data)&&query.data.length?<div className="flex flex-wrap gap-2">{query.data.map(item=><button type="button" key={item.startsAt} onClick={()=>setSlot(item.startsAt)} className={`rounded-full border px-4 py-2.5 text-xs transition ${slot===item.startsAt?'border-primary bg-primary text-primary-foreground':'border-border hover:bg-secondary'}`} data-testid={`slot-${item.startsAt}`}>{item.label}</button>)}</div>:<div className="rounded-xl bg-secondary p-4 text-sm text-muted-foreground">No available times on this date. Choose another day.</div>}</div>}</section>
-    <section><StepLabel n="03" text="Your details"/><div className="mt-4 grid gap-4 sm:grid-cols-2"><label className="grid gap-2 text-xs">{t('Full name')}<input required minLength={2} maxLength={120} value={name} onChange={e=>setName(e.target.value)} autoComplete="name" className="rounded-xl border border-input bg-background px-4 py-3 text-sm" data-testid="input-booking-name"/></label><label className="grid gap-2 text-xs">{t('Email address')}<input required type="email" maxLength={254} value={email} onChange={e=>setEmail(e.target.value)} autoComplete="email" className="rounded-xl border border-input bg-background px-4 py-3 text-sm" data-testid="input-booking-email"/></label><label className="grid gap-2 text-xs">{t('Phone number')}<input required type="tel" minLength={7} maxLength={40} value={phone} onChange={e=>setPhone(e.target.value)} autoComplete="tel" className="rounded-xl border border-input bg-background px-4 py-3 text-sm" data-testid="input-booking-phone"/></label><label className="grid gap-2 text-xs">{t('A note for our team')} <span className="text-muted-foreground">(optional)</span><input maxLength={1000} value={note} onChange={e=>setNote(e.target.value)} className="rounded-xl border border-input bg-background px-4 py-3 text-sm" data-testid="input-booking-note"/></label></div></section>
-    <section className="rounded-xl bg-secondary/70 p-4"><label className="flex cursor-pointer items-start gap-3 text-xs leading-5"><input type="checkbox" checked={accepted} onChange={e=>setAccepted(e.target.checked)} className="mt-1 accent-primary" data-testid="checkbox-policy-accept"/><span>{t('I have read and accept the')} <Link className="underline" href="/policies">{t('visit and cancellation policy')}</Link>. Current policy details are demo/setup placeholders.</span></label></section>
-    {formError&&<p className="rounded-xl border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive" role="alert" data-testid="status-booking-error">{formError}</p>}
-    <button disabled={create.isPending} className="flex w-full items-center justify-center gap-2 rounded-full bg-primary px-6 py-4 text-sm font-medium text-primary-foreground disabled:opacity-60" data-testid="button-submit-booking">{create.isPending?<><LoaderCircle className="animate-spin" size={17}/> Checking and booking…</>:<>{t('Confirm appointment')} <ArrowRight size={16}/></>}</button>
-  </form><aside className="h-fit rounded-[1.5rem] bg-secondary p-6 lg:sticky lg:top-28"><p className="mono text-[9px] tracking-[.2em] text-primary">{t('YOUR VISIT')}</p><h2 className="serif mt-3 text-3xl">{selected?.name||t('Treatment summary')}</h2>{selected?<div className="mt-5 border-t border-primary/15 pt-4 text-sm"><div className="flex justify-between py-2"><span className="text-muted-foreground">Duration</span><span>{selected.durationMinutes} min</span></div><div className="flex justify-between py-2"><span className="text-muted-foreground">Price</span><span>{formatMoney(selected.priceAmount,selected.currency)}</span></div><div className="flex justify-between py-2"><span className="text-muted-foreground">Date</span><span>{date?new Date(`${date}T12:00:00`).toLocaleDateString(undefined,{month:'short',day:'numeric'}):'Choose a date'}</span></div><div className="flex justify-between py-2"><span className="text-muted-foreground">Time</span><span>{(Array.isArray(query.data)?query.data.find(x=>x.startsAt===slot)?.label:undefined)||t('Choose a time')}</span></div></div>:<p className="mt-2 text-sm leading-6 text-muted-foreground">Your selection will appear here. All visible service and price information is supplied by the spa setup.</p>}<div className="mt-6 border-t border-primary/15 pt-4"><div className="flex gap-3"><ShieldCheck className="shrink-0 text-primary" size={18}/><p className="text-xs leading-5 text-muted-foreground">{t('No account needed. Your request is checked against live availability when you confirm.')}</p></div><p className="mt-4 text-[10px] leading-4 text-muted-foreground">{profile.data?.cancellationPolicy||'Cancellation policy is a demo/setup placeholder.'}</p></div></aside></div></main></>;
+  const removeFromCart = (serviceId: string) => {
+    setCartServiceIds(current => current.filter(id => id !== serviceId));
+    setSlot('');
+    setFormError('');
+  };
+
+  const submit = async (event: FormEvent) => {
+    event.preventDefault();
+    setFormError('');
+    if (!cartServices.length) { setFormError(t('Add at least one treatment to your cart.')); return; }
+    if (!slot) { setFormError(t('Choose an available appointment time.')); return; }
+    if (name.trim().length < 2) { setFormError(t('Enter your name so the team knows who to welcome.')); return; }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { setFormError(t('Enter a valid email address.')); return; }
+    if (phone.replace(/\D/g, '').length < 7) { setFormError(t('Enter a phone number with at least 7 digits.')); return; }
+    if (!accepted) { setFormError(t('Please accept the visit policy to continue.')); return; }
+    const signature = JSON.stringify([cartServiceIds, slot, name.trim(), email.trim(), phone.trim(), note.trim()]);
+    if (idempotency.current?.signature !== signature) idempotency.current = { signature, key: makeIdempotencyKey() };
+    setSubmitting(true);
+    try {
+      const response = await fetch('/api/bookings/cart', {
+        method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ serviceIds: cartServiceIds, startsAt: slot, customerName: name.trim(), customerEmail: email.trim(), customerPhone: phone.trim(), customerNote: note.trim() || undefined, policyAccepted: true, idempotencyKey: idempotency.current.key }),
+      });
+      const payload = await response.json().catch(() => null) as BookingConfirmation | { error?: string } | null;
+      if (!response.ok || !payload || 'error' in payload) {
+        const message = payload && 'error' in payload ? payload.error : undefined;
+        throw Object.assign(new Error(message || t('Your booking could not be completed. Please try again.')), { status: response.status });
+      }
+      const confirmation = payload as BookingConfirmation;
+      const history = readStoredBookingHistory();
+      const nextHistory: HistoryEntry[] = [{
+        id: confirmation.bookingReference, bookingReference: confirmation.bookingReference,
+        serviceName: confirmation.serviceName, startsAt: confirmation.startsAt, status: confirmation.status,
+        priceAmount: confirmation.priceAmount, currency: confirmation.currency,
+      }, ...history.filter(entry => entry.bookingReference !== confirmation.bookingReference)];
+      saveStoredBookingHistory(nextHistory);
+      saveStoredCustomerProfile({ name: name.trim(), email: email.trim(), phone: phone.trim() });
+      saveStoredCart([]);
+      sessionStorage.setItem('stillroom-confirmation', JSON.stringify(confirmation));
+      void queryClient.invalidateQueries({ queryKey: getListManagerBookingsQueryKey() });
+      void queryClient.invalidateQueries({ queryKey: getGetManagerDashboardQueryKey() });
+      setLocation('/booking/confirmed');
+    } catch (error) {
+      const bookingError = error as { status?: number; message?: string };
+      setFormError(bookingError.status === 409 ? t('Choose another available appointment time.') : bookingError.message || t('Your booking could not be completed. Please try again.'));
+      void cartQuery.refetch();
+    } finally { setSubmitting(false); }
+  };
+
+  return <><Meta title="Book a visit" description="Choose treatments and a real available appointment time."/><main className="page-enter mx-auto max-w-[1180px] px-5 py-12 md:px-10 md:py-16">
+    <div className="mb-10"><p className="mono text-[10px] tracking-[.2em] text-primary">{t('BOOK WITHOUT AN ACCOUNT')}</p><h1 className="serif mt-3 text-5xl md:text-6xl">{t('Make it your time.')}</h1><p className="mt-3 text-sm text-muted-foreground">{t('Choose treatments, add them to your cart, and reserve them together.')}</p></div>
+    <div className="grid gap-8 lg:grid-cols-[1fr_350px]">
+      <form onSubmit={submit} className="space-y-8 rounded-[1.5rem] border border-border bg-card p-5 md:p-8">
+        <section><StepLabel n="01" text="Choose a treatment"/><div className="mt-4 flex flex-col gap-3 sm:flex-row"><div ref={servicePickerRef} className="relative min-w-0 flex-1"><button type="button" aria-haspopup="listbox" aria-expanded={servicePickerOpen} aria-controls="booking-service-options" onClick={()=>setServicePickerOpen(open=>!open)} disabled={services.isLoading||!services.data?.length} className="flex w-full min-w-0 items-center justify-between gap-3 rounded-xl border border-input bg-background px-4 py-3.5 text-start text-sm transition hover:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 disabled:opacity-60" data-testid="select-booking-service"><span className={serviceToAdd?'truncate text-foreground':'truncate text-muted-foreground'}>{services.data?.find(service=>service.id===serviceToAdd)?.name||t('Select a treatment')}</span><ChevronDown size={16} className={`shrink-0 text-muted-foreground transition-transform ${servicePickerOpen?'rotate-180':''}`}/></button>{servicePickerOpen&&<div id="booking-service-options" role="listbox" aria-label={t('Select a treatment')} className="absolute inset-x-0 top-[calc(100%+0.5rem)] z-30 max-h-[min(52dvh,24rem)] overflow-y-auto overscroll-contain rounded-2xl border border-border bg-card p-2 shadow-xl ring-1 ring-foreground/5">{services.data?.map(service=><button type="button" key={service.id} role="option" aria-selected={service.id===serviceToAdd} onClick={()=>{setServiceToAdd(service.id);setServicePickerOpen(false)}} className={`flex w-full items-center justify-between gap-3 rounded-xl px-3 py-3 text-start transition hover:bg-secondary ${service.id===serviceToAdd?'bg-secondary':''}`}><span className="min-w-0"><span className="block break-words text-sm font-medium">{service.name}</span><span className="mt-1 block text-xs text-muted-foreground">{service.durationMinutes} min</span></span><span className="shrink-0 text-sm tabular-nums">{service.discountPercent>0&&<><del className="me-1 text-xs text-muted-foreground">{formatMoney(service.originalPriceAmount,service.currency)}</del><span className="me-1 text-xs text-destructive">-{service.discountPercent}%</span></>}{formatMoney(service.priceAmount,service.currency)}</span></button>)}</div>}</div><button type="button" onClick={addToCart} disabled={!serviceToAdd || cartServiceIds.length >= 8} className="inline-flex items-center justify-center gap-2 rounded-full border border-border px-5 py-3 text-sm disabled:opacity-50"><Plus size={15}/>{t('Add to cart')}</button></div>{services.isLoading&&<p className="mt-2 text-xs text-muted-foreground">{t('Loading treatments')}</p>}{services.isError&&<button type="button" onClick={()=>void services.refetch()} className="mt-2 text-xs underline">{t('Retry loading treatments')}</button>}
+          <div className="mt-5 rounded-2xl border border-border p-4"><div className="flex items-center justify-between"><h3 className="text-sm font-medium">{t('Your cart')}</h3><span className="text-xs text-muted-foreground">{cartServices.length}/8</span></div>{cartServices.length?<ul className="mt-3 max-h-[32dvh] divide-y divide-border overflow-y-auto overscroll-contain pe-1">{cartServices.map((service,index)=><li key={service.id} className="flex items-center justify-between gap-3 py-3"><div className="min-w-0"><p className="break-words text-sm">{index+1}. {service.name}</p><p className="mt-1 text-xs text-muted-foreground">{service.durationMinutes} min | {service.discountPercent>0&&<><del className="me-1">{formatMoney(service.originalPriceAmount,service.currency)}</del><span className="me-1 text-destructive">-{service.discountPercent}%</span></>}{formatMoney(service.priceAmount,service.currency)}</p></div><button type="button" onClick={()=>removeFromCart(service.id)} aria-label={`${t('Remove')} ${service.name}`} className="shrink-0 rounded-full border border-border px-3 py-1.5 text-xs">{t('Remove')}</button></li>)}</ul>:<p className="mt-3 text-sm text-muted-foreground">{t('Your cart is empty. Add one or more treatments to continue.')}</p>}</div>
+        </section>
+        <section><StepLabel n="02" text="Pick a day & time"/><div className="mx-auto mt-4 w-full max-w-[390px] rounded-2xl border border-border bg-background p-4 sm:p-5" data-testid="booking-calendar"><div className="mb-4 flex items-center justify-between gap-3"><button type="button" aria-label={t('Previous month')} disabled={!canGoToPreviousMonth} onClick={()=>setCalendarMonth(new Date(calendarMonth.getFullYear(),calendarMonth.getMonth()-1,1))} className="rounded-full border border-border p-2 transition hover:bg-secondary disabled:opacity-35" data-testid="calendar-previous"><ChevronLeft size={16}/></button><h3 className="text-sm font-medium">{monthStart.toLocaleDateString(calendarLocale,{month:'long',year:'numeric'})}</h3><button type="button" aria-label={t('Next month')} onClick={()=>setCalendarMonth(new Date(calendarMonth.getFullYear(),calendarMonth.getMonth()+1,1))} className="rounded-full border border-border p-2 transition hover:bg-secondary" data-testid="calendar-next"><ChevronRight size={16}/></button></div><div className="grid grid-cols-7 gap-1 text-center">{Array.from({length:7},(_,index)=>{const weekday=new Date(2024,0,7+index).toLocaleDateString(calendarLocale,{weekday:'short'});return <span key={index} className="pb-1 text-[10px] font-medium text-muted-foreground">{weekday}</span>})}{calendarDays.map((day,index)=>{if(day===null)return <span key={`empty-${index}`}/>;const value=dateLocal(new Date(calendarMonth.getFullYear(),calendarMonth.getMonth(),day));const isPast=value<todayDate;const isSelected=value===date;return <button type="button" key={value} disabled={isPast} aria-pressed={isSelected} aria-label={new Date(`${value}T12:00:00`).toLocaleDateString(calendarLocale,{dateStyle:'full'})} onClick={()=>{setDate(value);setSlot('')}} className={`grid aspect-square place-items-center rounded-full text-xs transition ${isSelected?'bg-primary font-semibold text-primary-foreground':isPast?'cursor-not-allowed text-muted-foreground/40':'hover:bg-secondary'}`} data-testid={`calendar-day-${value}`}>{day}</button>})}</div><p className="mt-3 text-center text-xs text-muted-foreground">{selectedDate?.toLocaleDateString(calendarLocale,{weekday:'long',month:'long',day:'numeric',year:'numeric'})}</p></div>{cartServiceIds.length>0&&<div className="mt-4">{cartQuery.isLoading?<div className="flex flex-wrap justify-center gap-2">{[1,2,3,4].map(i=><span key={i} className="h-10 w-20 animate-pulse rounded-full bg-secondary"/>)}</div>:cartQuery.isError?<div className="rounded-xl bg-secondary p-4 text-sm">{t('Availability could not be loaded.')} <button type="button" onClick={()=>void cartQuery.refetch()} className="underline">{t('Try again')}</button></div>:cartQuery.data?.length?<div className="flex flex-wrap justify-center gap-2">{cartQuery.data.map(item=><button type="button" key={item.startsAt} onClick={()=>setSlot(item.startsAt)} className={`rounded-full border px-4 py-2.5 text-xs transition ${slot===item.startsAt?'border-primary bg-primary text-primary-foreground':'border-border hover:bg-secondary'}`} data-testid={`slot-${item.startsAt}`}>{item.label}</button>)}</div>:<div className="rounded-xl bg-secondary p-4 text-sm text-muted-foreground">{t('No available times for this cart on this date. Choose another day.')}</div>}</div>}</section>
+        <section><StepLabel n="03" text="Your details"/><div className="mt-4 grid gap-4 sm:grid-cols-2"><label className="grid gap-2 text-xs">{t('Full name')}<input required minLength={2} maxLength={120} value={name} onChange={event=>setName(event.target.value)} autoComplete="name" className="rounded-xl border border-input bg-background px-4 py-3 text-sm" data-testid="input-booking-name"/></label><label className="grid gap-2 text-xs">{t('Email address')}<input required type="email" maxLength={254} value={email} onChange={event=>setEmail(event.target.value)} autoComplete="email" className="rounded-xl border border-input bg-background px-4 py-3 text-sm" data-testid="input-booking-email"/></label><label className="grid gap-2 text-xs">{t('Phone number')}<input required type="tel" minLength={7} maxLength={40} value={phone} onChange={event=>setPhone(event.target.value)} autoComplete="tel" className="rounded-xl border border-input bg-background px-4 py-3 text-sm" data-testid="input-booking-phone"/></label><label className="grid gap-2 text-xs">{t('A note for our team')} <span className="text-muted-foreground">{t('(optional)')}</span><input maxLength={1000} value={note} onChange={event=>setNote(event.target.value)} className="rounded-xl border border-input bg-background px-4 py-3 text-sm" data-testid="input-booking-note"/></label></div></section>
+        <section className="rounded-xl bg-secondary/70 p-4"><label className="flex cursor-pointer items-start gap-3 text-xs leading-5"><input type="checkbox" checked={accepted} onChange={event=>setAccepted(event.target.checked)} className="mt-1 accent-primary" data-testid="checkbox-policy-accept"/><span>{t('I have read and accept the')} <Link className="underline" href="/policies">{t('visit and cancellation policy')}</Link>. {t('Current policy details are demo/setup placeholders.')}</span></label></section>
+        {formError&&<p className="rounded-xl border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive" role="alert" data-testid="status-booking-error">{formError}</p>}
+        <button disabled={submitting||cartServices.length===0} className="flex w-full items-center justify-center gap-2 rounded-full bg-primary px-6 py-4 text-sm font-medium text-primary-foreground disabled:opacity-60" data-testid="button-submit-booking">{submitting?<><LoaderCircle className="animate-spin" size={17}/>{t('Checking and booking?')}</>:<>{t('Reserve cart')} <ArrowRight size={16}/></>}</button>
+      </form>
+      <aside className="h-fit max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain rounded-[1.5rem] bg-secondary p-5 sm:p-6 lg:sticky lg:top-28 lg:max-h-[calc(100dvh-8rem)]"><p className="mono text-[9px] tracking-[.2em] text-primary">{t('YOUR VISIT')}</p><h2 className="serif mt-3 text-3xl">{t('Reservation summary')}</h2>{cartServices.length?<div className="mt-5 border-t border-primary/15 pt-4 text-sm"><ul className="max-h-[24dvh] space-y-3 overflow-y-auto overscroll-contain">{cartServices.map(service=><li key={service.id} className="flex justify-between gap-3"><span className="min-w-0 break-words">{service.name}</span><span className="shrink-0 whitespace-nowrap">{service.discountPercent>0&&<><del className="me-1 text-muted-foreground">{formatMoney(service.originalPriceAmount,service.currency)}</del><span className="me-1 text-destructive">-{service.discountPercent}%</span></>}{formatMoney(service.priceAmount,service.currency)}</span></li>)}</ul><div className="mt-4 flex justify-between border-t border-primary/15 pt-4"><span className="text-muted-foreground">{t('Treatment time')}</span><span>{totalServiceDuration} min</span></div><div className="flex justify-between py-2 font-medium"><span>{t('Total')}</span><span>{formatMoney(totalPrice,currency)}</span></div><div className="flex justify-between py-2"><span className="text-muted-foreground">{t('Date')}</span><span>{date?new Date(`${date}T12:00:00`).toLocaleDateString(undefined,{month:'short',day:'numeric'}):t('Choose a date')}</span></div><div className="flex justify-between py-2"><span className="text-muted-foreground">{t('Time')}</span><span>{cartQuery.data?.find(item=>item.startsAt===slot)?.label||t('Choose a time')}</span></div></div>:<p className="mt-2 text-sm leading-6 text-muted-foreground">{t('Your cart is empty. Add one or more treatments to continue.')}</p>}{cartServices.length > 1 && <p className="mt-2 text-xs text-muted-foreground">{t('Includes the required space between treatments.')}</p>}<div className="mt-6 border-t border-primary/15 pt-4"><div className="flex gap-3"><ShieldCheck className="shrink-0 text-primary" size={18}/><p className="text-xs leading-5 text-muted-foreground">{t('No account needed. Your request is checked against live availability when you confirm.')}</p></div><p className="mt-4 text-[10px] leading-4 text-muted-foreground">{profile.data?.cancellationPolicy||t('Cancellation policy is a demo/setup placeholder.')}</p></div></aside>
+    </div></main></>;
 }
 
 export function AccountPage() {
@@ -562,7 +672,7 @@ function DashboardInner() {
 }
 function StatusAction({label,onClick,disabled}:{label:string;onClick:()=>void;disabled:boolean}) { return <button onClick={onClick} disabled={disabled} className="rounded-full bg-primary px-4 py-2 text-[10px] text-primary-foreground disabled:opacity-50" data-testid={`button-status-${label.toLowerCase().replaceAll(' ','-')}`}>{label}</button> }
 
-type ManagedService = { id:string; name:string; slug:string; category:string; shortDescription:string; description:string; durationMinutes:number; priceAmount:number; currency:string; imageUrl:string|null; isFeatured:boolean; isActive:boolean };
+type ManagedService = { id:string; name:string; slug:string; category:string; shortDescription:string; description:string; durationMinutes:number; priceAmount:number; discountPercent:number; currency:string; imageUrl:string|null; isFeatured:boolean; isActive:boolean };
 type ManagedCustomer = { id:string; name:string; email:string; phone:string; hasAccount:boolean; createdAt:string; updatedAt:string };
 type ManagedStaff = { id:string; displayName:string; bio:string; clerkUserId:string|null; accountEmail:string|null; accountRole:string|null; accountDisabled:boolean; isBookable:boolean; isActive:boolean; createdAt:string; updatedAt:string };
 
@@ -582,6 +692,8 @@ function ManagementMessage({error}:{error:string}) { const {t}=useLanguage(); re
 
 function ServicesManagementPanel() {
   const { t } = useLanguage();
+  const { user } = useUser();
+  const isAdmin = user?.publicMetadata?.role === 'admin';
   const fileInputRef = useRef<HTMLInputElement>(null);
   const categoriesList = [
     'Ongles',
@@ -603,6 +715,7 @@ function ServicesManagementPanel() {
     description: '',
     durationMinutes: 45,
     priceDT: 20,
+    discountPercent: 0,
     currency: 'TND',
     imageUrl: '',
     isFeatured: false,
@@ -686,6 +799,7 @@ function ServicesManagementPanel() {
       description: item.description || '',
       durationMinutes: item.durationMinutes || 30,
       priceDT: Math.round(item.priceAmount / 100),
+      discountPercent: item.discountPercent || 0,
       currency: item.currency || 'TND',
       imageUrl: item.imageUrl || '',
       isFeatured: item.isFeatured ?? false,
@@ -721,6 +835,7 @@ function ServicesManagementPanel() {
       description: form.description.trim() || form.shortDescription.trim(),
       durationMinutes: Number(form.durationMinutes),
       priceAmount: Math.round(Number(form.priceDT) * 100),
+      discountPercent: Number(form.discountPercent),
       currency: 'TND',
       imageUrl: form.imageUrl.trim() || null,
       isFeatured: form.isFeatured,
@@ -835,7 +950,7 @@ function ServicesManagementPanel() {
                         {item.shortDescription}
                       </p>
                       <div className="mt-2 flex items-center gap-3 text-xs">
-                        <span className="font-semibold text-primary">{Math.round(item.priceAmount / 100)} dt</span>
+                        <span className="font-semibold text-primary">{Math.round(item.priceAmount * (100-item.discountPercent) / 10000)} dt</span>{item.discountPercent>0&&<><del className="text-muted-foreground">{Math.round(item.priceAmount/100)} dt</del><span className="rounded-full bg-destructive/10 px-2 py-0.5 text-[10px] font-semibold text-destructive">-{item.discountPercent}%</span></>}
                         <span className="text-muted-foreground">• {item.durationMinutes} min</span>
                         <span className="text-[10px] text-muted-foreground mono">
                           {item.imageUrl ? 'Photo configurée' : 'Pas de photo'}
@@ -1065,6 +1180,8 @@ function ServicesManagementPanel() {
               </div>
             </label>
           </div>
+
+          {isAdmin && <label className="grid gap-1 text-xs font-medium">Pourcentage de remise (%)<input type="number" min="0" max="100" step="1" value={form.discountPercent} onChange={(e)=>setForm({...form,discountPercent:Number(e.target.value)})} className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm" /></label>}
 
           {/* Mettre à la une */}
           <label className="flex items-center gap-2 text-xs font-medium cursor-pointer pt-1">

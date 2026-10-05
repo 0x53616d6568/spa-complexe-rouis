@@ -5,6 +5,7 @@ import {
   integer,
   pgEnum,
   pgTable,
+  primaryKey,
   text,
   timestamp,
   uniqueIndex,
@@ -59,6 +60,30 @@ export const bookingsTable = pgTable(
     index("bookings_start_status_idx").on(table.startsAt, table.status),
     index("bookings_customer_idx").on(table.customerId, table.startsAt),
     index("bookings_staff_idx").on(table.staffId, table.startsAt),
+  ],
+);
+
+export const bookingServiceItemsTable = pgTable(
+  "booking_service_items",
+  {
+    bookingId: uuid("booking_id")
+      .notNull()
+      .references(() => bookingsTable.id, { onDelete: "cascade" }),
+    position: integer("position").notNull(),
+    serviceId: uuid("service_id")
+      .notNull()
+      .references(() => servicesTable.id),
+    serviceName: text("service_name").notNull(),
+    startsAt: timestamp("starts_at", { withTimezone: true }).notNull(),
+    endsAt: timestamp("ends_at", { withTimezone: true }).notNull(),
+    durationMinutes: integer("duration_minutes").notNull(),
+    priceAmount: integer("price_amount").notNull(),
+    discountPercent: integer("discount_percent").notNull().default(0),
+    currency: text("currency").notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.bookingId, table.position] }),
+    index("booking_service_items_service_idx").on(table.serviceId),
   ],
 );
 
