@@ -46,9 +46,9 @@ app.use(cors({ credentials: true, origin: true }));
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 
-const hasClerkKey = Boolean(process.env.CLERK_PUBLISHABLE_KEY || process.env.CLERK_SECRET_KEY);
+const hasClerkSecret = Boolean(process.env.CLERK_SECRET_KEY && process.env.CLERK_SECRET_KEY.startsWith("sk_"));
 
-if (hasClerkKey) {
+if (hasClerkSecret) {
   try {
     app.use(
       clerkMiddleware((request) => ({
@@ -56,13 +56,14 @@ if (hasClerkKey) {
           getClerkProxyHost(request) ?? "",
           process.env.CLERK_PUBLISHABLE_KEY,
         ),
+        secretKey: process.env.CLERK_SECRET_KEY,
       })),
     );
   } catch (err) {
     logger.warn({ err }, "Could not initialize Clerk middleware");
   }
 } else {
-  // Public fallback when Clerk is not configured
+  // Public fallback when Clerk secret key is not provided
   app.use((req, _res, next) => {
     (req as any).auth = { userId: null, sessionId: null, getToken: async () => null };
     next();
