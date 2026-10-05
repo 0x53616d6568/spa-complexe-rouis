@@ -242,6 +242,7 @@ async function createGuestBookingForServices(input: NormalizedBookingInput, cler
             endsAt,
             durationMinutes: item.durationMinutes,
             priceAmount: Math.round(item.priceAmount * (100 - item.discountPercent) / 100),
+            discountPercent: item.discountPercent,
             currency: item.currency,
           };
         }),

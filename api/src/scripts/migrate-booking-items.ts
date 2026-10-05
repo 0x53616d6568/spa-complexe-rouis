@@ -28,9 +28,13 @@ try {
       ends_at TIMESTAMPTZ NOT NULL,
       duration_minutes INTEGER NOT NULL,
       price_amount INTEGER NOT NULL,
+      discount_percent INTEGER NOT NULL DEFAULT 0 CHECK (discount_percent BETWEEN 0 AND 100),
       currency TEXT NOT NULL,
       PRIMARY KEY (booking_id, position)
     );
+    ALTER TABLE booking_service_items ADD COLUMN IF NOT EXISTS discount_percent INTEGER NOT NULL DEFAULT 0;
+    ALTER TABLE booking_service_items DROP CONSTRAINT IF EXISTS booking_service_items_discount_percent_check;
+    ALTER TABLE booking_service_items ADD CONSTRAINT booking_service_items_discount_percent_check CHECK (discount_percent BETWEEN 0 AND 100);
     CREATE INDEX IF NOT EXISTS booking_service_items_service_idx
       ON booking_service_items (service_id);
   `);
