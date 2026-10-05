@@ -6,7 +6,8 @@ dotenv.config({ path: path.resolve(import.meta.dirname, "../../../.env") });
 import { clerkClient } from "@clerk/express";
 import { logger } from "../lib/logger";
 
-const [emailInput, roleInput] = process.argv.slice(2);
+const args = process.argv.slice(2).filter((arg) => arg !== "--");
+const [emailInput, roleInput] = args;
 const email = emailInput?.trim().toLowerCase();
 
 if (!email || !email.includes("@") || !["manager", "admin"].includes(roleInput ?? "")) {
