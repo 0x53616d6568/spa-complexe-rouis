@@ -26,7 +26,7 @@ import { ArrowRight, Flower2, ShieldCheck } from 'lucide-react';
 
 const queryClient = new QueryClient();
 
-const rawClerkPubKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY ?? '';
+const rawClerkPubKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY ?? import.meta.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY ?? 'pk_test_cGxlYXNpbmctYnVubnktOTkyMC5jbGVyay5hY2NvdW50cy5kZXYk';
 
 // Canonical Clerk key/proxy wiring: the host helper resolves custom domains and
 // proxyUrl is always passed (empty in development by design).
