@@ -1,7 +1,9 @@
 import { createInsertSchema } from "drizzle-zod";
+import { sql } from "drizzle-orm";
 import { z } from "zod/v4";
 import {
   boolean,
+  check,
   integer,
   pgTable,
   text,
@@ -40,6 +42,7 @@ export const servicesTable = pgTable(
     bufferBeforeMinutes: integer("buffer_before_minutes").notNull().default(0),
     bufferAfterMinutes: integer("buffer_after_minutes").notNull().default(0),
     priceAmount: integer("price_amount").notNull(),
+    discountPercent: integer("discount_percent").notNull().default(0),
     currency: text("currency").notNull().default("NGN"),
     imageUrl: text("image_url"),
     isFeatured: boolean("is_featured").notNull().default(false),
@@ -52,7 +55,10 @@ export const servicesTable = pgTable(
       .defaultNow()
       .$onUpdate(() => new Date()),
   },
-  (table) => [uniqueIndex("services_slug_uq").on(table.slug)],
+  (table) => [
+    uniqueIndex("services_slug_uq").on(table.slug),
+    check("services_discount_percent_check", sql`${table.discountPercent} between 0 and 100`),
+  ],
 );
 
 export const insertServiceCategorySchema = createInsertSchema(

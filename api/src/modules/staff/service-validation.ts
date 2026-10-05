@@ -7,6 +7,7 @@ export const serviceBody = z.object({
   description: z.string().min(2).max(2000),
   durationMinutes: z.number().int().min(1).max(600),
   priceAmount: z.number().int().min(0),
+  discountPercent: z.number().int().min(0).max(100).optional(),
   currency: z.string().length(3),
   isFeatured: z.boolean().optional(),
   imageUrl: z.union([z.string().max(50000000), z.literal(""), z.null()])

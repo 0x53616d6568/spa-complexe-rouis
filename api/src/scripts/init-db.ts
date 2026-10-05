@@ -168,6 +168,7 @@ const sql = `
     ends_at TIMESTAMPTZ NOT NULL,
     duration_minutes INTEGER NOT NULL,
     price_amount INTEGER NOT NULL,
+    discount_percent INTEGER NOT NULL DEFAULT 0 CHECK (discount_percent BETWEEN 0 AND 100),
     currency TEXT NOT NULL,
     PRIMARY KEY (booking_id, position)
   );

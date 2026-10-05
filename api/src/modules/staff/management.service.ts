@@ -19,6 +19,7 @@ type ServiceInput = {
   description: string;
   durationMinutes: number;
   priceAmount: number;
+  discountPercent?: number;
   currency: string;
   isFeatured?: boolean;
   imageUrl?: string | null;
@@ -64,6 +65,7 @@ export async function listManageServices() {
     description: servicesTable.description,
     durationMinutes: servicesTable.durationMinutes,
     priceAmount: servicesTable.priceAmount,
+    discountPercent: servicesTable.discountPercent,
     currency: servicesTable.currency,
     imageUrl: servicesTable.imageUrl,
     isFeatured: servicesTable.isFeatured,
@@ -72,6 +74,9 @@ export async function listManageServices() {
 }
 
 export async function createManagedService(input: ServiceInput, actor: SpaActor) {
+  if ((input.discountPercent ?? 0) > 0 && actor.role !== "admin") {
+    throw new HttpError(403, "Only an admin can apply service discounts.");
+  }
   const categoryId = await categoryIdFor(input.category);
   const slug = slugify(input.name);
   if (!slug) throw new HttpError(400, "Service name is required.");
@@ -83,6 +88,7 @@ export async function createManagedService(input: ServiceInput, actor: SpaActor)
     description: input.description.trim(),
     durationMinutes: input.durationMinutes,
     priceAmount: input.priceAmount,
+    discountPercent: input.discountPercent ?? 0,
     currency: input.currency.trim().toUpperCase(),
     isFeatured: input.isFeatured ?? false,
     imageUrl: input.imageUrl?.trim() || null,
@@ -92,6 +98,9 @@ export async function createManagedService(input: ServiceInput, actor: SpaActor)
 }
 
 export async function updateManagedService(id: string, input: Partial<ServiceInput> & { isActive?: boolean }, actor: SpaActor) {
+  if (input.discountPercent !== undefined && actor.role !== "admin") {
+    throw new HttpError(403, "Only an admin can change service discounts.");
+  }
   const patch: Record<string, unknown> = { updatedAt: new Date() };
   if (input.name !== undefined) { patch.name = input.name.trim(); patch.slug = slugify(input.name); }
   if (input.category !== undefined) patch.categoryId = await categoryIdFor(input.category);
@@ -99,6 +108,7 @@ export async function updateManagedService(id: string, input: Partial<ServiceInp
   if (input.description !== undefined) patch.description = input.description.trim();
   if (input.durationMinutes !== undefined) patch.durationMinutes = input.durationMinutes;
   if (input.priceAmount !== undefined) patch.priceAmount = input.priceAmount;
+  if (input.discountPercent !== undefined) patch.discountPercent = input.discountPercent;
   if (input.currency !== undefined) patch.currency = input.currency.trim().toUpperCase();
   if (input.isFeatured !== undefined) patch.isFeatured = input.isFeatured;
   if (input.imageUrl !== undefined) patch.imageUrl = input.imageUrl?.trim() || null;

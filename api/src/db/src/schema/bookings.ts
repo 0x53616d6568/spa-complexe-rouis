@@ -78,6 +78,7 @@ export const bookingServiceItemsTable = pgTable(
     endsAt: timestamp("ends_at", { withTimezone: true }).notNull(),
     durationMinutes: integer("duration_minutes").notNull(),
     priceAmount: integer("price_amount").notNull(),
+    discountPercent: integer("discount_percent").notNull().default(0),
     currency: text("currency").notNull(),
   },
   (table) => [

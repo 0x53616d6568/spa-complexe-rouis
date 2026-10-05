@@ -19,6 +19,7 @@ function toPublicService(row: {
   description: string;
   durationMinutes: number;
   priceAmount: number;
+  discountPercent: number;
   currency: string;
   imageUrl: string | null;
   isFeatured: boolean;
@@ -31,7 +32,9 @@ function toPublicService(row: {
     shortDescription: row.shortDescription,
     description: row.description,
     durationMinutes: row.durationMinutes,
-    priceAmount: row.priceAmount,
+    originalPriceAmount: row.priceAmount,
+    discountPercent: row.discountPercent,
+    priceAmount: Math.round(row.priceAmount * (100 - row.discountPercent) / 100),
     currency: row.currency,
     imageUrl: row.imageUrl,
     isFeatured: row.isFeatured,
@@ -49,6 +52,7 @@ export async function listPublicServices() {
       description: servicesTable.description,
       durationMinutes: servicesTable.durationMinutes,
       priceAmount: servicesTable.priceAmount,
+      discountPercent: servicesTable.discountPercent,
       currency: servicesTable.currency,
       imageUrl: servicesTable.imageUrl,
       isFeatured: servicesTable.isFeatured,
@@ -80,6 +84,7 @@ export async function getPublicService(slug: string) {
       description: servicesTable.description,
       durationMinutes: servicesTable.durationMinutes,
       priceAmount: servicesTable.priceAmount,
+      discountPercent: servicesTable.discountPercent,
       currency: servicesTable.currency,
       imageUrl: servicesTable.imageUrl,
       isFeatured: servicesTable.isFeatured,

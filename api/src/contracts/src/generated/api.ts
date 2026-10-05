@@ -46,6 +46,8 @@ export const ListServicesResponseItem = zod.object({
   "description": zod.string(),
   "durationMinutes": zod.number().int(),
   "priceAmount": zod.number().int().describe('Amount in the currency\'s minor unit'),
+  "originalPriceAmount": zod.number().int().describe('Amount before service discount'),
+  "discountPercent": zod.number().int().min(0).max(100),
   "currency": zod.string(),
   "imageUrl": zod.string().nullable(),
   "isFeatured": zod.boolean()
@@ -69,6 +71,8 @@ export const GetServiceResponse = zod.object({
   "description": zod.string(),
   "durationMinutes": zod.number().int(),
   "priceAmount": zod.number().int().describe('Amount in the currency\'s minor unit'),
+  "originalPriceAmount": zod.number().int().describe('Amount before service discount'),
+  "discountPercent": zod.number().int().min(0).max(100),
   "currency": zod.string(),
   "imageUrl": zod.string().nullable(),
   "isFeatured": zod.boolean()
