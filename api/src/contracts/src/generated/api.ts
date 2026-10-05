@@ -118,6 +118,17 @@ export const CreateBookingBody = zod.object({
   "idempotencyKey": zod.string().uuid()
 })
 
+export const CreateBookingCartBody = zod.object({
+  "serviceIds": zod.array(zod.string().uuid()).min(1).max(8),
+  "startsAt": zod.coerce.date(),
+  "customerName": zod.string().min(createBookingBodyCustomerNameMin).max(createBookingBodyCustomerNameMax),
+  "customerEmail": zod.string().email().max(createBookingBodyCustomerEmailMax),
+  "customerPhone": zod.string().min(createBookingBodyCustomerPhoneMin).max(createBookingBodyCustomerPhoneMax),
+  "customerNote": zod.string().max(createBookingBodyCustomerNoteMax).nullish(),
+  "policyAccepted": zod.literal(true),
+  "idempotencyKey": zod.string().uuid()
+})
+
 export const CreateBookingResponse = zod.object({
   "id": zod.string().uuid(),
   "bookingReference": zod.string(),
@@ -255,5 +266,4 @@ export const ListAuditLogsResponseItem = zod.object({
   "createdAt": zod.coerce.date()
 })
 export const ListAuditLogsResponse = zod.array(ListAuditLogsResponseItem)
-
 

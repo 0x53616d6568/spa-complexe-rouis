@@ -159,6 +159,22 @@ const sql = `
   CREATE INDEX IF NOT EXISTS bookings_staff_idx
     ON bookings (staff_id, starts_at);
 
+  CREATE TABLE IF NOT EXISTS booking_service_items (
+    booking_id UUID NOT NULL REFERENCES bookings(id) ON DELETE CASCADE,
+    position INTEGER NOT NULL,
+    service_id UUID NOT NULL REFERENCES services(id),
+    service_name TEXT NOT NULL,
+    starts_at TIMESTAMPTZ NOT NULL,
+    ends_at TIMESTAMPTZ NOT NULL,
+    duration_minutes INTEGER NOT NULL,
+    price_amount INTEGER NOT NULL,
+    currency TEXT NOT NULL,
+    PRIMARY KEY (booking_id, position)
+  );
+
+  CREATE INDEX IF NOT EXISTS booking_service_items_service_idx
+    ON booking_service_items (service_id);
+
   CREATE TABLE IF NOT EXISTS booking_status_history (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     booking_id UUID NOT NULL REFERENCES bookings(id) ON DELETE CASCADE,

@@ -2,12 +2,13 @@ import { Router, type IRouter } from "express";
 import { clerkClient, getAuth } from "@clerk/express";
 import {
   CreateBookingBody,
+  CreateBookingCartBody,
   GetAvailabilityQueryParams,
   GetServiceParams,
 } from "@workspace/api-zod";
 import { getPublicService, listPublicServices } from "../modules/services/catalog.service";
-import { listAvailableSlots } from "../modules/availability/availability.service";
-import { createGuestBooking } from "../modules/bookings/bookings.service";
+import { listAvailableSlots, listAvailableSlotsForServices } from "../modules/availability/availability.service";
+import { createGuestBooking, createGuestBookingCart } from "../modules/bookings/bookings.service";
 import { getPublicSpaProfile } from "../modules/settings/settings.service";
 import { HttpError, sendRouteError } from "../modules/shared/http-error";
 import { getGuestBooking, cancelGuestBooking } from "../modules/guest-bookings/guest-bookings.service";
@@ -89,6 +90,22 @@ router.get("/availability", availabilityRateLimit, async (request, response) => 
   }
 });
 
+router.get("/availability/cart", availabilityRateLimit, async (request, response) => {
+  try {
+    const rawDate = typeof request.query.date === "string" ? request.query.date : "";
+    const serviceIds = typeof request.query.serviceIds === "string"
+      ? request.query.serviceIds.split(",").filter(Boolean)
+      : [];
+    const dateIsValid = /^\d{4}-\d{2}-\d{2}$/.test(rawDate) && !Number.isNaN(new Date(`${rawDate}T00:00:00.000Z`).getTime());
+    if (!dateIsValid || !serviceIds.length || serviceIds.length > 8 || serviceIds.some((id) => !/^[0-9a-f-]{36}$/i.test(id))) {
+      throw new HttpError(400, "Choose treatments and a valid date.");
+    }
+    response.json(await listAvailableSlotsForServices(serviceIds, rawDate));
+  } catch (error) {
+    sendRouteError(request, response, error);
+  }
+});
+
 router.post("/bookings", bookingRateLimit, async (request, response) => {
   try {
     const parsed = CreateBookingBody.safeParse(request.body);
@@ -112,6 +129,29 @@ router.post("/bookings", bookingRateLimit, async (request, response) => {
       }
     }
     response.status(201).json(await createGuestBooking(parsed.data, customerAccountId));
+  } catch (error) {
+    sendRouteError(request, response, error);
+  }
+});
+
+router.post("/bookings/cart", bookingRateLimit, async (request, response) => {
+  try {
+    const parsed = CreateBookingCartBody.safeParse(request.body);
+    if (!parsed.success) throw new HttpError(400, "Check the reservation details and try again.");
+    let customerAccountId: string | undefined;
+    const userId = getAuth(request).userId;
+    if (userId) {
+      try {
+        const user = await clerkClient.users.getUser(userId);
+        const normalizedEmail = parsed.data.customerEmail.trim().toLowerCase();
+        if (user.emailAddresses.some((address) => address.emailAddress.trim().toLowerCase() === normalizedEmail && address.verification?.status === "verified")) {
+          customerAccountId = userId;
+        }
+      } catch (error) {
+        request.log?.warn({ error, userId }, "Could not link booking to the signed-in customer account");
+      }
+    }
+    response.status(201).json(await createGuestBookingCart(parsed.data, customerAccountId));
   } catch (error) {
     sendRouteError(request, response, error);
   }

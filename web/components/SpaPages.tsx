@@ -21,12 +21,29 @@ import {
   getListManagerBookingsQueryKey,
   getGetManagerDashboardQueryKey,
 } from '@workspace/api-client-react';
-import type { AuditEvent, BookingConfirmation, ManagerBooking, Service, StaffProfile } from '@workspace/api-client-react';
+import type { AuditEvent, AvailabilitySlot, BookingConfirmation, ManagerBooking, Service, StaffProfile } from '@workspace/api-client-react';
 import { StaffManagementPanel } from '@/components/StaffManagementPanel';
 import {
   ArrowRight, ArrowUpRight, CalendarDays, Check, ChevronLeft, Clock3, Flower2, HeartHandshake,
-  LoaderCircle, Menu, Moon, Pencil, Plus, RefreshCw, ShieldCheck, Sparkles, Sun, Trash2, Users, X,
+  LoaderCircle, Menu, Moon, Pencil, Plus, RefreshCw, ShieldCheck, ShoppingBag, Sparkles, Sun, Trash2, Users, X,
 } from 'lucide-react';
+
+const BOOKING_CART_STORAGE_KEY = 'stillroom-booking-cart';
+const BOOKING_CART_EVENT = 'stillroom-booking-cart-change';
+
+function readStoredCart(): string[] {
+  try {
+    const value = JSON.parse(localStorage.getItem(BOOKING_CART_STORAGE_KEY) || '[]');
+    return Array.isArray(value) ? value.filter((id): id is string => typeof id === 'string').slice(0, 8) : [];
+  } catch { return []; }
+}
+
+function saveStoredCart(serviceIds: string[]) {
+  try {
+    localStorage.setItem(BOOKING_CART_STORAGE_KEY, JSON.stringify(serviceIds.slice(0, 8)));
+    window.dispatchEvent(new Event(BOOKING_CART_EVENT));
+  } catch { /* Cart still works for this page if storage is unavailable. */ }
+}
 
 function Meta({ title, description }: { title: string; description: string }) {
   const { t } = useLanguage();
@@ -54,6 +71,7 @@ function HealthPip() {
 
 export function SiteShell({ children }: { children: ReactNode }) {
   const [open, setOpen] = useState(false);
+  const [cartCount, setCartCount] = useState(() => readStoredCart().length);
   const profile = useGetSpaProfile();
   const spa = profile.data;
   const [, setLocation] = useLocation();
@@ -61,6 +79,15 @@ export function SiteShell({ children }: { children: ReactNode }) {
   const { user } = useUser();
   const { language, setLanguage, t } = useLanguage();
   const { resolvedTheme, setTheme } = useTheme();
+  useEffect(() => {
+    const updateCartCount = () => setCartCount(readStoredCart().length);
+    window.addEventListener('storage', updateCartCount);
+    window.addEventListener(BOOKING_CART_EVENT, updateCartCount);
+    return () => {
+      window.removeEventListener('storage', updateCartCount);
+      window.removeEventListener(BOOKING_CART_EVENT, updateCartCount);
+    };
+  }, []);
   const role = typeof user?.publicMetadata?.role === 'string' ? user.publicMetadata.role : null;
   const isStaffVisible = role === 'manager' || role === 'admin';
   const nav = [
@@ -93,13 +120,15 @@ export function SiteShell({ children }: { children: ReactNode }) {
           ) : (
             <Link href="/sign-in" className="hidden whitespace-nowrap ps-3 text-[13px] text-foreground/70 hover:text-primary sm:block" data-testid="link-sign-in">{t('Sign in')}</Link>
           )}
+          <Link href="/book" aria-label={`${t('Cart')}, ${cartCount}`} title={t('Cart')} className="relative inline-flex items-center gap-1.5 rounded-full border border-border px-2.5 py-2 text-xs text-foreground/80 transition hover:border-primary hover:text-primary" data-testid="link-header-cart"><ShoppingBag size={16}/><span className="hidden sm:inline">{t('Cart')}</span><span className="grid min-h-5 min-w-5 place-items-center rounded-full bg-primary px-1 text-[10px] font-semibold text-primary-foreground">{cartCount}</span></Link>
           <button className="hidden rounded-full bg-primary px-5 py-3 text-xs font-semibold tracking-wide text-primary-foreground transition hover:-translate-y-0.5 md:block" onClick={() => setLocation('/book')} data-testid="button-header-book">{t('Find a time')} <ArrowRight className="ms-2 inline" size={14}/></button>
-          <select aria-label={t('Language')} value={language} onChange={event=>setLanguage(event.target.value as 'en'|'fr'|'ar')} className="max-w-[104px] rounded-full border border-border bg-card px-2 py-2 text-xs"><option value="en">English</option><option value="fr">Fran&#231;ais</option><option value="ar">&#1575;&#1604;&#1593;&#1585;&#1576;&#1610;&#1577;</option></select>
-          <button type="button" onClick={()=>setTheme(resolvedTheme==='dark'?'light':'dark')} className="rounded-full border border-border p-2" aria-label={t(resolvedTheme==='dark'?'Switch to light mode':'Switch to dark mode')} title={t(resolvedTheme==='dark'?'Switch to light mode':'Switch to dark mode')}>{resolvedTheme==='dark'?<Sun size={16}/>:<Moon size={16}/>}</button>
+          <button className="inline-flex items-center gap-1 rounded-full bg-primary px-3 py-2 text-[11px] font-semibold text-primary-foreground md:hidden" onClick={() => setLocation('/book')} data-testid="button-header-book-mobile">{t('Find a time')}<ArrowRight size={13}/></button>
+          <select aria-label={t('Language')} value={language} onChange={event=>setLanguage(event.target.value as 'en'|'fr'|'ar')} className="hidden max-w-[104px] rounded-full border border-border bg-card px-2 py-2 text-xs md:block"><option value="en">English</option><option value="fr">Fran&#231;ais</option><option value="ar">&#1575;&#1604;&#1593;&#1585;&#1576;&#1610;&#1577;</option></select>
+          <button type="button" onClick={()=>setTheme(resolvedTheme==='dark'?'light':'dark')} className="hidden rounded-full border border-border p-2 md:inline-flex" aria-label={t(resolvedTheme==='dark'?'Switch to light mode':'Switch to dark mode')} title={t(resolvedTheme==='dark'?'Switch to light mode':'Switch to dark mode')}>{resolvedTheme==='dark'?<Sun size={16}/>:<Moon size={16}/>}</button>
           <button className="rounded-full p-2 md:hidden" onClick={() => setOpen(!open)} aria-label={open ? t('Close menu') : t('Open menu')} data-testid="button-mobile-menu">{open ? <X size={21}/> : <Menu size={21}/>}</button>
         </div>
       </div>
-      {open && <nav className="grid gap-1 border-t border-border px-5 py-3 md:hidden">{nav.map(item => <Link key={item.href} onClick={() => setOpen(false)} href={item.href} className="rounded-lg px-3 py-3 text-sm hover:bg-secondary">{item.label}</Link>)}{user ? <button type="button" onClick={() => void signOut({ redirectUrl: window.location.origin + '/sign-in' })} className="rounded-lg bg-secondary px-3 py-3 text-start text-sm">{t('Sign out')}</button> : <Link onClick={() => setOpen(false)} href="/sign-in" className="rounded-lg bg-secondary px-3 py-3 text-sm">{t('Sign in')}</Link>}<Link onClick={() => setOpen(false)} href="/book" className="rounded-lg bg-primary px-3 py-3 text-sm text-primary-foreground">{t('Book an appointment')}</Link></nav>}
+      {open && <nav className="grid gap-1 border-t border-border px-5 py-3 md:hidden"><div className="flex items-center justify-between gap-3 px-3 py-2"><label htmlFor="mobile-language" className="text-sm">{t('Language')}</label><select id="mobile-language" value={language} onChange={event=>setLanguage(event.target.value as 'en'|'fr'|'ar')} className="rounded-full border border-border bg-card px-3 py-2 text-xs"><option value="en">English</option><option value="fr">Fran&#231;ais</option><option value="ar">&#1575;&#1604;&#1593;&#1585;&#1576;&#1610;&#1577;</option></select></div><button type="button" onClick={()=>setTheme(resolvedTheme==='dark'?'light':'dark')} className="flex items-center gap-2 rounded-lg px-3 py-3 text-start text-sm hover:bg-secondary">{resolvedTheme==='dark'?<Sun size={16}/>:<Moon size={16}/>} {t(resolvedTheme==='dark'?'Switch to light mode':'Switch to dark mode')}</button>{nav.map(item => <Link key={item.href} onClick={() => setOpen(false)} href={item.href} className="rounded-lg px-3 py-3 text-sm hover:bg-secondary">{item.label}</Link>)}<Link onClick={() => setOpen(false)} href="/book" className="rounded-lg border border-border px-3 py-3 text-sm">{t('Cart')} ({cartCount})</Link>{user ? <button type="button" onClick={() => void signOut({ redirectUrl: window.location.origin + '/sign-in' })} className="rounded-lg bg-secondary px-3 py-3 text-start text-sm">{t('Sign out')}</button> : <Link onClick={() => setOpen(false)} href="/sign-in" className="rounded-lg bg-secondary px-3 py-3 text-sm">{t('Sign in')}</Link>}</nav>}
     </header>
     {children}
     <footer className="bg-primary px-5 py-12 text-primary-foreground md:px-10">
@@ -405,103 +434,136 @@ function makeIdempotencyKey() { return typeof crypto !== 'undefined' && 'randomU
 export function BookingPage() {
   const { user } = useUser();
   const { t } = useLanguage();
-  const [,setLocation]=useLocation();
-  const queryClient=useQueryClient();
-  const services=useListServices();
-  const profile=useGetSpaProfile();
-  const params=new URLSearchParams(window.location.search);
-  const [serviceId,setServiceId]=useState(params.get('service')||'');
-  const [date,setDate]=useState(dateLocal(new Date()));
-  const [slot,setSlot]=useState('');
-  const [name,setName]=useState('');
-  const [email,setEmail]=useState('');
-  const [phone,setPhone]=useState('');
-  const [note,setNote]=useState('');
-  const [accepted,setAccepted]=useState(false);
-  const [formError,setFormError]=useState('');
-  const idempotency=useRef<{signature:string;key:string}|null>(null);
+  const [, setLocation] = useLocation();
+  const queryClient = useQueryClient();
+  const services = useListServices();
+  const profile = useGetSpaProfile();
+  const params = new URLSearchParams(window.location.search);
+  const initialServiceId = params.get('service') || '';
+  const [serviceToAdd, setServiceToAdd] = useState('');
+  const [cartServiceIds, setCartServiceIds] = useState<string[]>(() => {
+    const storedCart = readStoredCart();
+    return initialServiceId
+      ? [initialServiceId, ...storedCart.filter(id => id !== initialServiceId)].slice(0, 8)
+      : storedCart;
+  });
+  const [date, setDate] = useState(dateLocal(new Date()));
+  const [slot, setSlot] = useState('');
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
+  const [note, setNote] = useState('');
+  const [accepted, setAccepted] = useState(false);
+  const [formError, setFormError] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const idempotency = useRef<{ signature: string; key: string } | null>(null);
+  const cartQuery = useQuery<AvailabilitySlot[]>({
+    queryKey: ['/api/availability/cart', { serviceIds: cartServiceIds, date }],
+    enabled: cartServiceIds.length > 0 && !!date,
+    queryFn: async () => {
+      const search = new URLSearchParams({ serviceIds: cartServiceIds.join(','), date });
+      const response = await fetch(`/api/availability/cart?${search.toString()}`);
+      const payload = await response.json().catch(() => null) as AvailabilitySlot[] | { error?: string } | null;
+      if (!response.ok) throw new Error(payload && !Array.isArray(payload) ? payload.error || 'Availability could not be loaded.' : 'Availability could not be loaded.');
+      return (payload || []) as AvailabilitySlot[];
+    },
+  });
+  const cartServices = cartServiceIds.map(id => services.data?.find(item => item.id === id)).filter((item): item is Service => Boolean(item));
+  const totalServiceDuration = cartServices.reduce((sum, item) => sum + item.durationMinutes, 0);
+  const totalPrice = cartServices.reduce((sum, item) => sum + item.priceAmount, 0);
+  const currency = cartServices[0]?.currency || 'NGN';
 
-  const selected = Array.isArray(services.data) ? services.data.find(s => s.id === serviceId || s.slug === serviceId) : undefined;
-  const effectiveServiceId = selected?.id || serviceId;
-
-  useEffect(() => {
-    const p = new URLSearchParams(window.location.search);
-    const s = p.get('service');
-    if (s && s !== serviceId) {
-      setServiceId(s);
-      setSlot('');
-    }
-  }, [window.location.search]);
-
-  useEffect(() => {
-    if (selected && serviceId !== selected.id) {
-      setServiceId(selected.id);
-    }
-  }, [selected, serviceId]);
-
-  const query=useGetAvailability({serviceId: effectiveServiceId, date},{query:{enabled:!!effectiveServiceId&&!!date,queryKey:['/api/availability',{serviceId: effectiveServiceId, date}]} });
-  const create=useCreateBooking();
+  useEffect(() => { saveStoredCart(cartServiceIds); }, [cartServiceIds]);
 
   useEffect(() => {
     const savedProfile = readStoredCustomerProfile();
     const clerkName = user ? [user.firstName, user.lastName].filter(Boolean).join(' ').trim() : '';
     const clerkEmail = user?.primaryEmailAddress?.emailAddress ?? savedProfile.email;
     const clerkPhone = user?.phoneNumbers?.[0]?.phoneNumber ?? savedProfile.phone;
-
     const nextName = clerkName || savedProfile.name;
     const nextEmail = clerkEmail || savedProfile.email;
     const nextPhone = clerkPhone || savedProfile.phone;
-
     if (nextName && !name) setName(nextName);
     if (nextEmail && !email) setEmail(nextEmail);
     if (nextPhone && !phone) setPhone(nextPhone);
-
     saveStoredCustomerProfile({ name: nextName || name, email: nextEmail || email, phone: nextPhone || phone });
   }, [user, name, email, phone]);
 
-  useEffect(() => {
-    saveStoredCustomerProfile({ name, email, phone });
-  }, [name, email, phone]);
+  useEffect(() => { saveStoredCustomerProfile({ name, email, phone }); }, [name, email, phone]);
 
-  const submit=(event:FormEvent)=>{event.preventDefault();setFormError('');
-    if(!selected){setFormError(t('Choose a treatment to continue.'));return}
-    if(!slot){setFormError(t('Choose an available appointment time.'));return}
-    if(name.trim().length<2){setFormError(t('Enter your name so the team knows who to welcome.'));return}
-    if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){setFormError(t('Enter a valid email address.'));return}
-    if(phone.replace(/\D/g,'').length<7){setFormError(t('Enter a phone number with at least 7 digits.'));return}
-    if(!accepted){setFormError(t('Please accept the visit policy to continue.'));return}
-    const signature=JSON.stringify([serviceId,slot,name.trim(),email.trim(),phone.trim(),note.trim()]);
-    if(idempotency.current?.signature!==signature) idempotency.current={signature,key:makeIdempotencyKey()};
-    create.mutate({data:{serviceId,startsAt:slot,customerName:name.trim(),customerEmail:email.trim(),customerPhone:phone.trim(),customerNote:note.trim()||undefined,policyAccepted:true,idempotencyKey:idempotency.current.key}},{
-      onSuccess:(confirmation)=>{
-        const history = readStoredBookingHistory();
-        const nextHistory: HistoryEntry[] = [{
-          id: confirmation.bookingReference,
-          bookingReference: confirmation.bookingReference,
-          serviceName: confirmation.serviceName,
-          startsAt: confirmation.startsAt,
-          status: confirmation.status,
-          priceAmount: confirmation.priceAmount,
-          currency: confirmation.currency,
-        }, ...history.filter(entry => entry.bookingReference !== confirmation.bookingReference)];
-        saveStoredBookingHistory(nextHistory);
-        saveStoredCustomerProfile({ name: name.trim(), email: email.trim(), phone: phone.trim() });
-        sessionStorage.setItem('stillroom-confirmation',JSON.stringify(confirmation));
-        void queryClient.invalidateQueries({queryKey:getListManagerBookingsQueryKey()});
-        void queryClient.invalidateQueries({queryKey:getGetManagerDashboardQueryKey()});
-        setLocation('/booking/confirmed');
-      },
-      onError:(error)=>{const e=error as {status?:number;message?:string};setFormError(e.status===409?t('Choose another available appointment time.'):e.message||t('Your booking could not be completed. Please try again.'));void query.refetch();}
-    });
+  const addToCart = () => {
+    setFormError('');
+    if (!serviceToAdd) { setFormError(t('Choose a treatment to continue.')); return; }
+    if (cartServiceIds.includes(serviceToAdd)) { setFormError(t('That treatment is already in your cart.')); return; }
+    if (cartServiceIds.length >= 8) { setFormError(t('Your cart can contain up to eight treatments.')); return; }
+    setCartServiceIds(current => [...current, serviceToAdd]);
+    setServiceToAdd('');
+    setSlot('');
   };
-  return <><Meta title="Book a visit" description="Choose a treatment and a real available appointment time."/><main className="page-enter mx-auto max-w-[1180px] px-5 py-12 md:px-10 md:py-16"><div className="mb-10"><p className="mono text-[10px] tracking-[.2em] text-primary">BOOK WITHOUT AN ACCOUNT</p><h1 className="serif mt-3 text-5xl md:text-6xl">Make it your time.</h1><p className="mt-3 text-sm text-muted-foreground">Choose a service and available time, then leave the rest to us.</p></div><div className="grid gap-8 lg:grid-cols-[1fr_350px]"><form onSubmit={submit} className="space-y-8 rounded-[1.5rem] border border-border bg-card p-5 md:p-8">
-    <section><StepLabel n="01" text="Choose a treatment"/><select value={serviceId} onChange={e=>{setServiceId(e.target.value);setSlot('')}} className="mt-4 w-full rounded-xl border border-input bg-background px-4 py-3.5 text-sm" data-testid="select-booking-service"><option value="">{t('Select a treatment')}</option>{(Array.isArray(services.data)?services.data:[]).map(s=><option value={s.id} key={s.id}>{s.name} · {s.durationMinutes} min · {formatMoney(s.priceAmount,s.currency)}</option>)}</select>{services.isLoading&&<p className="mt-2 text-xs text-muted-foreground">Loading current treatments…</p>}{services.isError&&<button type="button" onClick={()=>void services.refetch()} className="mt-2 text-xs underline">Could not load treatments — retry</button>}</section>
-    <section><StepLabel n="02" text="Pick a day & time"/><input type="date" min={dateLocal(new Date())} value={date} onChange={e=>{setDate(e.target.value);setSlot('')}} className="mt-4 rounded-xl border border-input bg-background px-4 py-3 text-sm" data-testid="input-booking-date"/>{serviceId&&<div className="mt-4">{query.isLoading?<div className="flex gap-2">{[1,2,3,4].map(i=><span key={i} className="h-10 w-20 animate-pulse rounded-full bg-secondary"/>)}</div>:query.isError?<div className="rounded-xl bg-secondary p-4 text-sm">Availability could not be loaded. <button type="button" onClick={()=>void query.refetch()} className="underline">Try again</button></div>:Array.isArray(query.data)&&query.data.length?<div className="flex flex-wrap gap-2">{query.data.map(item=><button type="button" key={item.startsAt} onClick={()=>setSlot(item.startsAt)} className={`rounded-full border px-4 py-2.5 text-xs transition ${slot===item.startsAt?'border-primary bg-primary text-primary-foreground':'border-border hover:bg-secondary'}`} data-testid={`slot-${item.startsAt}`}>{item.label}</button>)}</div>:<div className="rounded-xl bg-secondary p-4 text-sm text-muted-foreground">No available times on this date. Choose another day.</div>}</div>}</section>
-    <section><StepLabel n="03" text="Your details"/><div className="mt-4 grid gap-4 sm:grid-cols-2"><label className="grid gap-2 text-xs">{t('Full name')}<input required minLength={2} maxLength={120} value={name} onChange={e=>setName(e.target.value)} autoComplete="name" className="rounded-xl border border-input bg-background px-4 py-3 text-sm" data-testid="input-booking-name"/></label><label className="grid gap-2 text-xs">{t('Email address')}<input required type="email" maxLength={254} value={email} onChange={e=>setEmail(e.target.value)} autoComplete="email" className="rounded-xl border border-input bg-background px-4 py-3 text-sm" data-testid="input-booking-email"/></label><label className="grid gap-2 text-xs">{t('Phone number')}<input required type="tel" minLength={7} maxLength={40} value={phone} onChange={e=>setPhone(e.target.value)} autoComplete="tel" className="rounded-xl border border-input bg-background px-4 py-3 text-sm" data-testid="input-booking-phone"/></label><label className="grid gap-2 text-xs">{t('A note for our team')} <span className="text-muted-foreground">(optional)</span><input maxLength={1000} value={note} onChange={e=>setNote(e.target.value)} className="rounded-xl border border-input bg-background px-4 py-3 text-sm" data-testid="input-booking-note"/></label></div></section>
-    <section className="rounded-xl bg-secondary/70 p-4"><label className="flex cursor-pointer items-start gap-3 text-xs leading-5"><input type="checkbox" checked={accepted} onChange={e=>setAccepted(e.target.checked)} className="mt-1 accent-primary" data-testid="checkbox-policy-accept"/><span>{t('I have read and accept the')} <Link className="underline" href="/policies">{t('visit and cancellation policy')}</Link>. Current policy details are demo/setup placeholders.</span></label></section>
-    {formError&&<p className="rounded-xl border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive" role="alert" data-testid="status-booking-error">{formError}</p>}
-    <button disabled={create.isPending} className="flex w-full items-center justify-center gap-2 rounded-full bg-primary px-6 py-4 text-sm font-medium text-primary-foreground disabled:opacity-60" data-testid="button-submit-booking">{create.isPending?<><LoaderCircle className="animate-spin" size={17}/> Checking and booking…</>:<>{t('Confirm appointment')} <ArrowRight size={16}/></>}</button>
-  </form><aside className="h-fit rounded-[1.5rem] bg-secondary p-6 lg:sticky lg:top-28"><p className="mono text-[9px] tracking-[.2em] text-primary">{t('YOUR VISIT')}</p><h2 className="serif mt-3 text-3xl">{selected?.name||t('Treatment summary')}</h2>{selected?<div className="mt-5 border-t border-primary/15 pt-4 text-sm"><div className="flex justify-between py-2"><span className="text-muted-foreground">Duration</span><span>{selected.durationMinutes} min</span></div><div className="flex justify-between py-2"><span className="text-muted-foreground">Price</span><span>{formatMoney(selected.priceAmount,selected.currency)}</span></div><div className="flex justify-between py-2"><span className="text-muted-foreground">Date</span><span>{date?new Date(`${date}T12:00:00`).toLocaleDateString(undefined,{month:'short',day:'numeric'}):'Choose a date'}</span></div><div className="flex justify-between py-2"><span className="text-muted-foreground">Time</span><span>{(Array.isArray(query.data)?query.data.find(x=>x.startsAt===slot)?.label:undefined)||t('Choose a time')}</span></div></div>:<p className="mt-2 text-sm leading-6 text-muted-foreground">Your selection will appear here. All visible service and price information is supplied by the spa setup.</p>}<div className="mt-6 border-t border-primary/15 pt-4"><div className="flex gap-3"><ShieldCheck className="shrink-0 text-primary" size={18}/><p className="text-xs leading-5 text-muted-foreground">{t('No account needed. Your request is checked against live availability when you confirm.')}</p></div><p className="mt-4 text-[10px] leading-4 text-muted-foreground">{profile.data?.cancellationPolicy||'Cancellation policy is a demo/setup placeholder.'}</p></div></aside></div></main></>;
+  const removeFromCart = (serviceId: string) => {
+    setCartServiceIds(current => current.filter(id => id !== serviceId));
+    setSlot('');
+    setFormError('');
+  };
+
+  const submit = async (event: FormEvent) => {
+    event.preventDefault();
+    setFormError('');
+    if (!cartServices.length) { setFormError(t('Add at least one treatment to your cart.')); return; }
+    if (!slot) { setFormError(t('Choose an available appointment time.')); return; }
+    if (name.trim().length < 2) { setFormError(t('Enter your name so the team knows who to welcome.')); return; }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { setFormError(t('Enter a valid email address.')); return; }
+    if (phone.replace(/\D/g, '').length < 7) { setFormError(t('Enter a phone number with at least 7 digits.')); return; }
+    if (!accepted) { setFormError(t('Please accept the visit policy to continue.')); return; }
+    const signature = JSON.stringify([cartServiceIds, slot, name.trim(), email.trim(), phone.trim(), note.trim()]);
+    if (idempotency.current?.signature !== signature) idempotency.current = { signature, key: makeIdempotencyKey() };
+    setSubmitting(true);
+    try {
+      const response = await fetch('/api/bookings/cart', {
+        method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ serviceIds: cartServiceIds, startsAt: slot, customerName: name.trim(), customerEmail: email.trim(), customerPhone: phone.trim(), customerNote: note.trim() || undefined, policyAccepted: true, idempotencyKey: idempotency.current.key }),
+      });
+      const payload = await response.json().catch(() => null) as BookingConfirmation | { error?: string } | null;
+      if (!response.ok || !payload || 'error' in payload) {
+        const message = payload && 'error' in payload ? payload.error : undefined;
+        throw Object.assign(new Error(message || t('Your booking could not be completed. Please try again.')), { status: response.status });
+      }
+      const confirmation = payload as BookingConfirmation;
+      const history = readStoredBookingHistory();
+      const nextHistory: HistoryEntry[] = [{
+        id: confirmation.bookingReference, bookingReference: confirmation.bookingReference,
+        serviceName: confirmation.serviceName, startsAt: confirmation.startsAt, status: confirmation.status,
+        priceAmount: confirmation.priceAmount, currency: confirmation.currency,
+      }, ...history.filter(entry => entry.bookingReference !== confirmation.bookingReference)];
+      saveStoredBookingHistory(nextHistory);
+      saveStoredCustomerProfile({ name: name.trim(), email: email.trim(), phone: phone.trim() });
+      saveStoredCart([]);
+      sessionStorage.setItem('stillroom-confirmation', JSON.stringify(confirmation));
+      void queryClient.invalidateQueries({ queryKey: getListManagerBookingsQueryKey() });
+      void queryClient.invalidateQueries({ queryKey: getGetManagerDashboardQueryKey() });
+      setLocation('/booking/confirmed');
+    } catch (error) {
+      const bookingError = error as { status?: number; message?: string };
+      setFormError(bookingError.status === 409 ? t('Choose another available appointment time.') : bookingError.message || t('Your booking could not be completed. Please try again.'));
+      void cartQuery.refetch();
+    } finally { setSubmitting(false); }
+  };
+
+  return <><Meta title="Book a visit" description="Choose treatments and a real available appointment time."/><main className="page-enter mx-auto max-w-[1180px] px-5 py-12 md:px-10 md:py-16">
+    <div className="mb-10"><p className="mono text-[10px] tracking-[.2em] text-primary">{t('BOOK WITHOUT AN ACCOUNT')}</p><h1 className="serif mt-3 text-5xl md:text-6xl">{t('Make it your time.')}</h1><p className="mt-3 text-sm text-muted-foreground">{t('Choose treatments, add them to your cart, and reserve them together.')}</p></div>
+    <div className="grid gap-8 lg:grid-cols-[1fr_350px]">
+      <form onSubmit={submit} className="space-y-8 rounded-[1.5rem] border border-border bg-card p-5 md:p-8">
+        <section><StepLabel n="01" text="Choose a treatment"/><div className="mt-4 flex flex-col gap-3 sm:flex-row"><select value={serviceToAdd} onChange={event => setServiceToAdd(event.target.value)} className="min-w-0 flex-1 rounded-xl border border-input bg-background px-4 py-3.5 text-sm" data-testid="select-booking-service"><option value="">{t('Select a treatment')}</option>{services.data?.map(service => <option value={service.id} key={service.id}>{service.name} | {service.durationMinutes} min | {formatMoney(service.priceAmount, service.currency)}</option>)}</select><button type="button" onClick={addToCart} disabled={!serviceToAdd || cartServiceIds.length >= 8} className="inline-flex items-center justify-center gap-2 rounded-full border border-border px-5 py-3 text-sm disabled:opacity-50"><Plus size={15}/>{t('Add to cart')}</button></div>{services.isLoading&&<p className="mt-2 text-xs text-muted-foreground">{t('Loading treatments')}</p>}{services.isError&&<button type="button" onClick={()=>void services.refetch()} className="mt-2 text-xs underline">{t('Retry loading treatments')}</button>}
+          <div className="mt-5 rounded-2xl border border-border p-4"><div className="flex items-center justify-between"><h3 className="text-sm font-medium">{t('Your cart')}</h3><span className="text-xs text-muted-foreground">{cartServices.length}/8</span></div>{cartServices.length?<ul className="mt-3 divide-y divide-border">{cartServices.map((service,index)=><li key={service.id} className="flex items-center justify-between gap-3 py-3"><div><p className="text-sm">{index+1}. {service.name}</p><p className="mt-1 text-xs text-muted-foreground">{service.durationMinutes} min | {formatMoney(service.priceAmount,service.currency)}</p></div><button type="button" onClick={()=>removeFromCart(service.id)} aria-label={`${t('Remove')} ${service.name}`} className="rounded-full border border-border px-3 py-1.5 text-xs">{t('Remove')}</button></li>)}</ul>:<p className="mt-3 text-sm text-muted-foreground">{t('Your cart is empty. Add one or more treatments to continue.')}</p>}</div>
+        </section>
+        <section><StepLabel n="02" text="Pick a day & time"/><input type="date" min={dateLocal(new Date())} value={date} onChange={event=>{setDate(event.target.value);setSlot('')}} className="mt-4 rounded-xl border border-input bg-background px-4 py-3 text-sm" data-testid="input-booking-date"/>{cartServiceIds.length>0&&<div className="mt-4">{cartQuery.isLoading?<div className="flex gap-2">{[1,2,3,4].map(i=><span key={i} className="h-10 w-20 animate-pulse rounded-full bg-secondary"/>)}</div>:cartQuery.isError?<div className="rounded-xl bg-secondary p-4 text-sm">{t('Availability could not be loaded.')} <button type="button" onClick={()=>void cartQuery.refetch()} className="underline">{t('Try again')}</button></div>:cartQuery.data?.length?<div className="flex flex-wrap gap-2">{cartQuery.data.map(item=><button type="button" key={item.startsAt} onClick={()=>setSlot(item.startsAt)} className={`rounded-full border px-4 py-2.5 text-xs transition ${slot===item.startsAt?'border-primary bg-primary text-primary-foreground':'border-border hover:bg-secondary'}`} data-testid={`slot-${item.startsAt}`}>{item.label}</button>)}</div>:<div className="rounded-xl bg-secondary p-4 text-sm text-muted-foreground">{t('No available times for this cart on this date. Choose another day.')}</div>}</div>}</section>
+        <section><StepLabel n="03" text="Your details"/><div className="mt-4 grid gap-4 sm:grid-cols-2"><label className="grid gap-2 text-xs">{t('Full name')}<input required minLength={2} maxLength={120} value={name} onChange={event=>setName(event.target.value)} autoComplete="name" className="rounded-xl border border-input bg-background px-4 py-3 text-sm" data-testid="input-booking-name"/></label><label className="grid gap-2 text-xs">{t('Email address')}<input required type="email" maxLength={254} value={email} onChange={event=>setEmail(event.target.value)} autoComplete="email" className="rounded-xl border border-input bg-background px-4 py-3 text-sm" data-testid="input-booking-email"/></label><label className="grid gap-2 text-xs">{t('Phone number')}<input required type="tel" minLength={7} maxLength={40} value={phone} onChange={event=>setPhone(event.target.value)} autoComplete="tel" className="rounded-xl border border-input bg-background px-4 py-3 text-sm" data-testid="input-booking-phone"/></label><label className="grid gap-2 text-xs">{t('A note for our team')} <span className="text-muted-foreground">{t('(optional)')}</span><input maxLength={1000} value={note} onChange={event=>setNote(event.target.value)} className="rounded-xl border border-input bg-background px-4 py-3 text-sm" data-testid="input-booking-note"/></label></div></section>
+        <section className="rounded-xl bg-secondary/70 p-4"><label className="flex cursor-pointer items-start gap-3 text-xs leading-5"><input type="checkbox" checked={accepted} onChange={event=>setAccepted(event.target.checked)} className="mt-1 accent-primary" data-testid="checkbox-policy-accept"/><span>{t('I have read and accept the')} <Link className="underline" href="/policies">{t('visit and cancellation policy')}</Link>. {t('Current policy details are demo/setup placeholders.')}</span></label></section>
+        {formError&&<p className="rounded-xl border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive" role="alert" data-testid="status-booking-error">{formError}</p>}
+        <button disabled={submitting||cartServices.length===0} className="flex w-full items-center justify-center gap-2 rounded-full bg-primary px-6 py-4 text-sm font-medium text-primary-foreground disabled:opacity-60" data-testid="button-submit-booking">{submitting?<><LoaderCircle className="animate-spin" size={17}/>{t('Checking and booking?')}</>:<>{t('Reserve cart')} <ArrowRight size={16}/></>}</button>
+      </form>
+      <aside className="h-fit rounded-[1.5rem] bg-secondary p-6 lg:sticky lg:top-28"><p className="mono text-[9px] tracking-[.2em] text-primary">{t('YOUR VISIT')}</p><h2 className="serif mt-3 text-3xl">{t('Reservation summary')}</h2>{cartServices.length?<div className="mt-5 border-t border-primary/15 pt-4 text-sm"><ul className="space-y-3">{cartServices.map(service=><li key={service.id} className="flex justify-between gap-3"><span>{service.name}</span><span className="whitespace-nowrap">{formatMoney(service.priceAmount,service.currency)}</span></li>)}</ul><div className="mt-4 flex justify-between border-t border-primary/15 pt-4"><span className="text-muted-foreground">{t('Treatment time')}</span><span>{totalServiceDuration} min</span></div><div className="flex justify-between py-2 font-medium"><span>{t('Total')}</span><span>{formatMoney(totalPrice,currency)}</span></div><div className="flex justify-between py-2"><span className="text-muted-foreground">{t('Date')}</span><span>{date?new Date(`${date}T12:00:00`).toLocaleDateString(undefined,{month:'short',day:'numeric'}):t('Choose a date')}</span></div><div className="flex justify-between py-2"><span className="text-muted-foreground">{t('Time')}</span><span>{cartQuery.data?.find(item=>item.startsAt===slot)?.label||t('Choose a time')}</span></div></div>:<p className="mt-2 text-sm leading-6 text-muted-foreground">{t('Your cart is empty. Add one or more treatments to continue.')}</p>}{cartServices.length > 1 && <p className="mt-2 text-xs text-muted-foreground">{t('Includes the required space between treatments.')}</p>}<div className="mt-6 border-t border-primary/15 pt-4"><div className="flex gap-3"><ShieldCheck className="shrink-0 text-primary" size={18}/><p className="text-xs leading-5 text-muted-foreground">{t('No account needed. Your request is checked against live availability when you confirm.')}</p></div><p className="mt-4 text-[10px] leading-4 text-muted-foreground">{profile.data?.cancellationPolicy||t('Cancellation policy is a demo/setup placeholder.')}</p></div></aside>
+    </div></main></>;
 }
 
 export function AccountPage() {

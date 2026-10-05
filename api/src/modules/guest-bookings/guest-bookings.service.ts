@@ -3,6 +3,7 @@ import {
   auditLogsTable,
   bookingSlotClaimsTable,
   bookingStatusHistoryTable,
+  bookingServiceItemsTable,
   bookingsTable,
   customersTable,
   db,
@@ -42,11 +43,16 @@ export async function getGuestBooking(token: string) {
       .for("update")
       .limit(1);
     if (!row) throw invalidToken();
+    const items = await tx
+      .select({ serviceName: bookingServiceItemsTable.serviceName })
+      .from(bookingServiceItemsTable)
+      .where(eq(bookingServiceItemsTable.bookingId, row.booking.id))
+      .orderBy(bookingServiceItemsTable.position);
 
     return {
     bookingReference: row.booking.bookingReference,
     customerName: row.customerName,
-    serviceName: row.serviceName,
+    serviceName: items.length ? items.map((item) => item.serviceName).join(" + ") : row.serviceName,
     startsAt: row.booking.startsAt,
     endsAt: row.booking.endsAt,
     timezone: row.booking.timezone,

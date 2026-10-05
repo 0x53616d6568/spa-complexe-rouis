@@ -171,6 +171,43 @@ const translations: Record<Exclude<Language, 'en'>, Record<string, string>> = {
   },
 };
 
+Object.assign(translations.fr, {
+  Cart: 'Panier',
+  'Choose treatments, add them to your cart, and reserve them together.': 'Choisissez plusieurs soins, ajoutez-les au panier et reservez-les ensemble.',
+  'Treatment time': 'Duree des soins',
+  'Includes the required space between treatments.': 'Inclut le temps necessaire entre les soins.',
+  'That treatment is already in your cart.': 'Ce soin est deja dans votre panier.',
+  'Your cart can contain up to eight treatments.': 'Votre panier peut contenir jusqu a huit soins.',
+  'Add at least one treatment to your cart.': 'Ajoutez au moins un soin a votre panier.',
+  'Add to cart': 'Ajouter au panier', 'Your cart': 'Votre panier', Remove: 'Retirer',
+  'Your cart is empty. Add one or more treatments to continue.': 'Votre panier est vide. Ajoutez un ou plusieurs soins pour continuer.',
+  'No available times for this cart on this date. Choose another day.': 'Aucun horaire ne convient a ce panier. Choisissez un autre jour.',
+  'Current policy details are demo/setup placeholders.': 'Les conditions affichees sont des exemples de demonstration.',
+  'Reserve cart': 'Reserver le panier', 'Reservation summary': 'Resume de la reservation',
+  'Total duration': 'Duree totale', Total: 'Total', Date: 'Date', Time: 'Heure',
+  'Cancellation policy is a demo/setup placeholder.': 'Les conditions d annulation sont un exemple de demonstration.',
+  'Retry loading treatments': 'Reessayer de charger les soins',
+});
+
+Object.assign(translations.ar, {
+  Cart: '\u0627\u0644\u0633\u0644\u0629',
+  'Choose treatments, add them to your cart, and reserve them together.': '\u0627\u062e\u062a\u0631 \u0639\u0644\u0627\u062c\u0627\u062a \u0645\u062a\u0639\u062f\u062f\u0629\u060c \u0623\u0636\u0641\u0647\u0627 \u0625\u0644\u0649 \u0633\u0644\u062a\u0643\u060c \u0648\u0627\u062d\u062c\u0632\u0647\u0627 \u0645\u0639\u064b\u0627.',
+  'Treatment time': '\u0645\u062f\u0629 \u0627\u0644\u0639\u0644\u0627\u062c\u0627\u062a',
+  'Includes the required space between treatments.': '\u064a\u0634\u0645\u0644 \u0627\u0644\u0648\u0642\u062a \u0627\u0644\u0644\u0627\u0632\u0645 \u0628\u064a\u0646 \u0627\u0644\u0639\u0644\u0627\u062c\u0627\u062a.',
+  'That treatment is already in your cart.': '\u0647\u0630\u0627 \u0627\u0644\u0639\u0644\u0627\u062c \u0645\u0648\u062c\u0648\u062f \u0641\u0639\u0644\u064b\u0627 \u0641\u064a \u0633\u0644\u062a\u0643.',
+  'Your cart can contain up to eight treatments.': '\u064a\u0645\u0643\u0646 \u0623\u0646 \u062a\u062d\u062a\u0648\u064a \u0633\u0644\u062a\u0643 \u0639\u0644\u0649 \u062b\u0645\u0627\u0646\u064a\u0629 \u0639\u0644\u0627\u062c\u0627\u062a \u0643\u062d\u062f \u0623\u0642\u0635\u0649.',
+  'Add at least one treatment to your cart.': '\u0623\u0636\u0641 \u0639\u0644\u0627\u062c\u064b\u0627 \u0648\u0627\u062d\u062f\u064b\u0627 \u0639\u0644\u0649 \u0627\u0644\u0623\u0642\u0644 \u0625\u0644\u0649 \u0633\u0644\u062a\u0643.',
+  'Add to cart': '\u0623\u0636\u0641 \u0625\u0644\u0649 \u0627\u0644\u0633\u0644\u0629', 'Your cart': '\u0633\u0644\u062a\u0643', Remove: '\u0625\u0632\u0627\u0644\u0629',
+  'Your cart is empty. Add one or more treatments to continue.': '\u0633\u0644\u062a\u0643 \u0641\u0627\u0631\u063a\u0629. \u0623\u0636\u0641 \u0639\u0644\u0627\u062c\u064b\u0627 \u0648\u0627\u062d\u062f\u064b\u0627 \u0623\u0648 \u0623\u0643\u062b\u0631 \u0644\u0644\u0645\u062a\u0627\u0628\u0639\u0629.',
+  'Availability could not be loaded.': '\u062a\u0639\u0630\u0651\u0631 \u062a\u062d\u0645\u064a\u0644 \u0627\u0644\u0645\u0648\u0627\u0639\u064a\u062f \u0627\u0644\u0645\u062a\u0627\u062d\u0629.',
+  'No available times for this cart on this date. Choose another day.': '\u0644\u0627 \u062a\u0648\u062c\u062f \u0645\u0648\u0627\u0639\u064a\u062f \u0645\u062a\u0627\u062d\u0629 \u0644\u0647\u0630\u0647 \u0627\u0644\u0633\u0644\u0629 \u0641\u064a \u0647\u0630\u0627 \u0627\u0644\u064a\u0648\u0645. \u0627\u062e\u062a\u0631 \u064a\u0648\u0645\u064b\u0627 \u0622\u062e\u0631.',
+  'Current policy details are demo/setup placeholders.': '\u062a\u0641\u0627\u0635\u064a\u0644 \u0627\u0644\u0633\u064a\u0627\u0633\u0629 \u0627\u0644\u062d\u0627\u0644\u064a\u0629 \u0623\u0645\u062b\u0644\u0629 \u062a\u062c\u0631\u064a\u0628\u064a\u0629.',
+  'Reserve cart': '\u0623\u0643\u0651\u062f \u0627\u0644\u062d\u062c\u0632', 'Reservation summary': '\u0645\u0644\u062e\u0635 \u0627\u0644\u062d\u062c\u0632',
+  'Total duration': '\u0627\u0644\u0645\u062f\u0629 \u0627\u0644\u0643\u0644\u064a\u0629', Total: '\u0627\u0644\u0645\u062c\u0645\u0648\u0639', Date: '\u0627\u0644\u062a\u0627\u0631\u064a\u062e', Time: '\u0627\u0644\u0648\u0642\u062a',
+  'Cancellation policy is a demo/setup placeholder.': '\u0633\u064a\u0627\u0633\u0629 \u0627\u0644\u0625\u0644\u063a\u0627\u0621 \u0645\u062b\u0627\u0644 \u062a\u062c\u0631\u064a\u0628\u064a.',
+  'Retry loading treatments': '\u0623\u0639\u062f \u0645\u062d\u0627\u0648\u0644\u0629 \u062a\u062d\u0645\u064a\u0644 \u0627\u0644\u0639\u0644\u0627\u062c\u0627\u062a',
+});
+
 type LanguageContextValue = { language: Language; setLanguage: (language: Language) => void; t: (english: string) => string };
 const LanguageContext = createContext<LanguageContextValue | null>(null);
 

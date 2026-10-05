@@ -1,10 +1,11 @@
 import { randomBytes } from "node:crypto";
-import { and, eq, sql } from "drizzle-orm";
-import { CreateBookingBody, CreateBookingResponse } from "@workspace/api-zod";
+import { and, eq, inArray, sql } from "drizzle-orm";
+import { CreateBookingBody, CreateBookingCartBody, CreateBookingResponse } from "@workspace/api-zod";
 import {
   auditLogsTable,
   bookingSlotClaimsTable,
   bookingStatusHistoryTable,
+  bookingServiceItemsTable,
   bookingsTable,
   customersTable,
   db,
@@ -13,12 +14,14 @@ import {
   servicesTable,
   spaSettingsTable,
 } from "@workspace/db";
-import { listAvailableSlots } from "../availability/availability.service";
+import { listAvailableSlotsForServices } from "../availability/availability.service";
 import { HttpError } from "../shared/http-error";
 import { localDateFor, slotClaimInstants } from "../shared/time";
 import { createGuestBookingManagementToken } from "../guest-bookings/management-token";
 
 type CreateBookingInput = ReturnType<typeof CreateBookingBody.parse>;
+type CreateBookingCartInput = ReturnType<typeof CreateBookingCartBody.parse>;
+type NormalizedBookingInput = Omit<CreateBookingCartInput, "serviceIds"> & { serviceIds: string[] };
 
 function postgresError(error: unknown): { code?: string; constraint?: string } {
   if (!error || typeof error !== "object") return {};
@@ -41,11 +44,16 @@ async function getExistingConfirmation(idempotencyKey: string) {
     .where(eq(bookingsTable.idempotencyKey, idempotencyKey))
     .limit(1);
   if (!row) return null;
+  const items = await db
+    .select({ serviceName: bookingServiceItemsTable.serviceName })
+    .from(bookingServiceItemsTable)
+    .where(eq(bookingServiceItemsTable.bookingId, row.booking.id))
+    .orderBy(bookingServiceItemsTable.position);
 
   return CreateBookingResponse.parse({
     id: row.booking.id,
     bookingReference: row.booking.bookingReference,
-    serviceName: row.serviceName,
+    serviceName: items.length ? items.map((item) => item.serviceName).join(" + ") : row.serviceName,
     startsAt: row.booking.startsAt,
     endsAt: row.booking.endsAt,
     durationMinutes: row.booking.durationMinutes,
@@ -56,8 +64,19 @@ async function getExistingConfirmation(idempotencyKey: string) {
 }
 
 export async function createGuestBooking(input: CreateBookingInput, clerkUserId?: string) {
+  return createGuestBookingForServices({ ...input, serviceIds: [input.serviceId] }, clerkUserId);
+}
+
+export async function createGuestBookingCart(input: CreateBookingCartInput, clerkUserId?: string) {
+  return createGuestBookingForServices(input, clerkUserId);
+}
+
+async function createGuestBookingForServices(input: NormalizedBookingInput, clerkUserId?: string) {
   const [settings] = await db.select().from(spaSettingsTable).limit(1);
   if (!settings) throw new HttpError(503, "Spa setup is incomplete.");
+  if (!input.serviceIds.length || input.serviceIds.length > 8 || new Set(input.serviceIds).size !== input.serviceIds.length) {
+    throw new HttpError(400, "Choose between one and eight different treatments.");
+  }
 
   const localDate = localDateFor(input.startsAt, settings.timezone);
 
@@ -77,10 +96,15 @@ export async function createGuestBooking(input: CreateBookingInput, clerkUserId?
         .where(eq(bookingsTable.idempotencyKey, input.idempotencyKey))
         .limit(1);
       if (existing) {
+        const items = await tx
+          .select({ serviceName: bookingServiceItemsTable.serviceName })
+          .from(bookingServiceItemsTable)
+          .where(eq(bookingServiceItemsTable.bookingId, existing.booking.id))
+          .orderBy(bookingServiceItemsTable.position);
         return CreateBookingResponse.parse({
           id: existing.booking.id,
           bookingReference: existing.booking.bookingReference,
-          serviceName: existing.serviceName,
+          serviceName: items.length ? items.map((item) => item.serviceName).join(" + ") : existing.serviceName,
           startsAt: existing.booking.startsAt,
           endsAt: existing.booking.endsAt,
           durationMinutes: existing.booking.durationMinutes,
@@ -90,15 +114,29 @@ export async function createGuestBooking(input: CreateBookingInput, clerkUserId?
         });
       }
 
-      const [service] = await tx
+      const matchingServices = await tx
         .select()
         .from(servicesTable)
-        .where(and(eq(servicesTable.id, input.serviceId), eq(servicesTable.isActive, true)))
-        .limit(1);
-      if (!service) throw new HttpError(404, "Service not found.");
+        .where(and(inArray(servicesTable.id, input.serviceIds), eq(servicesTable.isActive, true)));
+      if (matchingServices.length !== input.serviceIds.length) {
+        throw new HttpError(404, "A treatment in this cart is no longer available.");
+      }
+      const cartServices = input.serviceIds.map((id) => matchingServices.find((service) => service.id === id)!);
+      const service = cartServices[0]!;
+      const lastService = cartServices.at(-1)!;
+      if (new Set(cartServices.map((item) => item.currency)).size > 1) {
+        throw new HttpError(400, "Treatments in one reservation must use the same currency.");
+      }
+      const internalBufferMinutes = cartServices.slice(0, -1).reduce(
+        (total, item, index) => total + item.bufferAfterMinutes + cartServices[index + 1]!.bufferBeforeMinutes,
+        0,
+      );
+      const totalDurationMinutes = cartServices.reduce((total, item) => total + item.durationMinutes, 0) + internalBufferMinutes;
+      const totalPriceAmount = cartServices.reduce((total, item) => total + item.priceAmount, 0);
+      const serviceName = cartServices.map((item) => item.name).join(" + ");
 
-      const slots = await listAvailableSlots(
-        input.serviceId,
+      const slots = await listAvailableSlotsForServices(
+        input.serviceIds,
         localDate,
         tx as unknown as typeof db,
       );
@@ -160,8 +198,8 @@ export async function createGuestBooking(input: CreateBookingInput, clerkUserId?
           timezone: settings.timezone,
           status: "pending",
           customerNote: input.customerNote?.trim() || null,
-          durationMinutes: service.durationMinutes,
-          priceAmount: service.priceAmount,
+          durationMinutes: totalDurationMinutes,
+          priceAmount: totalPriceAmount,
           currency: service.currency,
         })
         .returning();
@@ -170,7 +208,7 @@ export async function createGuestBooking(input: CreateBookingInput, clerkUserId?
         slot.startsAt.getTime() - service.bufferBeforeMinutes * 60 * 1000,
       );
       const claimEnd = new Date(
-        slot.endsAt.getTime() + service.bufferAfterMinutes * 60 * 1000,
+        slot.endsAt.getTime() + lastService.bufferAfterMinutes * 60 * 1000,
       );
       await tx.insert(bookingSlotClaimsTable).values(
         slotClaimInstants(claimStart, claimEnd).map((slotStartsAt) => ({
@@ -187,6 +225,28 @@ export async function createGuestBooking(input: CreateBookingInput, clerkUserId?
         reason: null,
       });
 
+      let itemStartsAt = slot.startsAt;
+      await tx.insert(bookingServiceItemsTable).values(
+        cartServices.map((item, position) => {
+          const startsAt = itemStartsAt;
+          const endsAt = new Date(startsAt.getTime() + item.durationMinutes * 60 * 1000);
+          itemStartsAt = position < cartServices.length - 1
+            ? new Date(endsAt.getTime() + item.bufferAfterMinutes * 60 * 1000 + cartServices[position + 1]!.bufferBeforeMinutes * 60 * 1000)
+            : endsAt;
+          return {
+            bookingId: booking.id,
+            position,
+            serviceId: item.id,
+            serviceName: item.name,
+            startsAt,
+            endsAt,
+            durationMinutes: item.durationMinutes,
+            priceAmount: item.priceAmount,
+            currency: item.currency,
+          };
+        }),
+      );
+
       if (process.env.GUEST_BOOKING_MANAGEMENT_SECRET && process.env.PUBLIC_APP_URL) {
         const [notification] = await tx.insert(notificationsTable).values({
           bookingId: booking.id,
@@ -197,11 +257,11 @@ export async function createGuestBooking(input: CreateBookingInput, clerkUserId?
             spaName: settings.name,
             customerName: customer.name,
             bookingReference,
-            serviceName: service.name,
+            serviceName,
             startsAt: slot.startsAt.toISOString(),
             timezone: settings.timezone,
-            durationMinutes: service.durationMinutes,
-            priceAmount: service.priceAmount,
+            durationMinutes: totalDurationMinutes,
+            priceAmount: totalPriceAmount,
             currency: service.currency,
             cancellationPolicy: settings.cancellationPolicy,
           },
@@ -224,11 +284,11 @@ export async function createGuestBooking(input: CreateBookingInput, clerkUserId?
             spaName: settings.name,
             customerName: customer.name,
             bookingReference,
-            serviceName: service.name,
+            serviceName,
             startsAt: slot.startsAt.toISOString(),
             timezone: settings.timezone,
-            durationMinutes: service.durationMinutes,
-            priceAmount: service.priceAmount,
+            durationMinutes: totalDurationMinutes,
+            priceAmount: totalPriceAmount,
             currency: service.currency,
             cancellationPolicy: settings.cancellationPolicy,
           },
@@ -241,13 +301,13 @@ export async function createGuestBooking(input: CreateBookingInput, clerkUserId?
         action: "booking.created",
         entityType: "booking",
         entityId: booking.id,
-        metadata: { bookingReference, serviceId: service.id },
+        metadata: { bookingReference, serviceIds: cartServices.map((item) => item.id) },
       });
 
       return CreateBookingResponse.parse({
         id: booking.id,
         bookingReference: booking.bookingReference,
-        serviceName: service.name,
+        serviceName,
         startsAt: booking.startsAt,
         endsAt: booking.endsAt,
         durationMinutes: booking.durationMinutes,

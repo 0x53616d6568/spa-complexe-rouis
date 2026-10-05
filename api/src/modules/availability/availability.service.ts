@@ -1,4 +1,4 @@
-import { and, eq, gte, lt } from "drizzle-orm";
+import { and, eq, gte, inArray, lt } from "drizzle-orm";
 import type { AvailabilitySlot } from "@workspace/api-zod";
 import {
   bookingSlotClaimsTable,
@@ -23,12 +23,33 @@ export async function listAvailableSlots(
   localDate: string,
   executor: typeof db = db,
 ): Promise<AvailabilitySlot[]> {
-  const [service] = await executor
+  return listAvailableSlotsForServices([serviceId], localDate, executor);
+}
+
+export async function listAvailableSlotsForServices(
+  serviceIds: string[],
+  localDate: string,
+  executor: typeof db = db,
+): Promise<AvailabilitySlot[]> {
+  if (!serviceIds.length || serviceIds.length > 8 || new Set(serviceIds).size !== serviceIds.length) {
+    throw new HttpError(400, "Choose between one and eight different treatments.");
+  }
+  const services = await executor
     .select()
     .from(servicesTable)
-    .where(and(eq(servicesTable.id, serviceId), eq(servicesTable.isActive, true)))
-    .limit(1);
-  if (!service) throw new HttpError(404, "Service not found.");
+    .where(and(inArray(servicesTable.id, serviceIds), eq(servicesTable.isActive, true)));
+  if (services.length !== serviceIds.length) throw new HttpError(404, "A treatment in this cart is no longer available.");
+  const orderedServices = serviceIds.map((id) => services.find((service) => service.id === id)!);
+  if (new Set(orderedServices.map((service) => service.currency)).size > 1) {
+    throw new HttpError(400, "Treatments in one reservation must use the same currency.");
+  }
+  const internalBuffer = orderedServices.slice(0, -1).reduce(
+    (total, service, index) => total + service.bufferAfterMinutes + orderedServices[index + 1]!.bufferBeforeMinutes,
+    0,
+  );
+  const durationMinutes = orderedServices.reduce((total, service) => total + service.durationMinutes, 0) + internalBuffer;
+  const firstService = orderedServices[0]!;
+  const lastService = orderedServices.at(-1)!;
 
   const [settings] = await executor.select().from(spaSettingsTable).limit(1);
   if (!settings) throw new HttpError(503, "Spa setup is incomplete.");
@@ -60,11 +81,11 @@ export async function listAvailableSlots(
 
   const openMinute = minutesSinceMidnight(hours.openTime);
   const closeMinute = minutesSinceMidnight(hours.closeTime);
-  const firstStartMinute = openMinute + service.bufferBeforeMinutes;
+  const firstStartMinute = openMinute + firstService.bufferBeforeMinutes;
   const lastStartMinute =
     closeMinute -
-    service.durationMinutes -
-    service.bufferAfterMinutes;
+    durationMinutes -
+    lastService.bufferAfterMinutes;
   const minimumStart =
     Date.now() + settings.minimumNoticeHours * 60 * 60 * 1000;
   const maximumStart =
@@ -85,10 +106,10 @@ export async function listAvailableSlots(
       continue;
     }
 
-    const end = new Date(start.getTime() + service.durationMinutes * 60 * 1000);
+    const end = new Date(start.getTime() + durationMinutes * 60 * 1000);
     const claimsForSlot = slotClaimInstants(
-      new Date(start.getTime() - service.bufferBeforeMinutes * 60 * 1000),
-      new Date(end.getTime() + service.bufferAfterMinutes * 60 * 1000),
+      new Date(start.getTime() - firstService.bufferBeforeMinutes * 60 * 1000),
+      new Date(end.getTime() + lastService.bufferAfterMinutes * 60 * 1000),
     );
     if (claimsForSlot.some((claim) => claimedInstants.has(claim.getTime()))) {
       continue;

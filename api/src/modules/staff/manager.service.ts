@@ -11,6 +11,7 @@ import {
   auditLogsTable,
   bookingSlotClaimsTable,
   bookingStatusHistoryTable,
+  bookingServiceItemsTable,
   bookingsTable,
   customersTable,
   db,
@@ -53,7 +54,13 @@ async function getManagerBookingById(id: string, executor: typeof db = db) {
     .leftJoin(staffProfilesTable, eq(bookingsTable.staffId, staffProfilesTable.id))
     .where(eq(bookingsTable.id, id))
     .limit(1);
-  return row ?? null;
+  if (!row) return null;
+  const items = await executor
+    .select({ serviceName: bookingServiceItemsTable.serviceName })
+    .from(bookingServiceItemsTable)
+    .where(eq(bookingServiceItemsTable.bookingId, id))
+    .orderBy(asc(bookingServiceItemsTable.position));
+  return { ...row, serviceName: items.length ? items.map((item) => item.serviceName).join(" + ") : row.serviceName };
 }
 
 async function rowsForLocalDate(localDate: string) {
@@ -66,7 +73,7 @@ async function rowsForLocalDate(localDate: string) {
   );
   if (!start || !end) throw new HttpError(400, "Invalid calendar date.");
 
-  return db
+  const rows = await db
     .select({
       id: bookingsTable.id,
       serviceId: bookingsTable.serviceId,
@@ -91,6 +98,15 @@ async function rowsForLocalDate(localDate: string) {
       ),
     )
     .orderBy(asc(bookingsTable.startsAt));
+  if (!rows.length) return rows;
+  const items = await db
+    .select({ bookingId: bookingServiceItemsTable.bookingId, serviceName: bookingServiceItemsTable.serviceName, position: bookingServiceItemsTable.position })
+    .from(bookingServiceItemsTable)
+    .where(inArray(bookingServiceItemsTable.bookingId, rows.map((row) => row.id)))
+    .orderBy(asc(bookingServiceItemsTable.position));
+  const namesByBooking = new Map<string, string[]>();
+  for (const item of items) namesByBooking.set(item.bookingId, [...(namesByBooking.get(item.bookingId) ?? []), item.serviceName]);
+  return rows.map((row) => ({ ...row, serviceName: namesByBooking.get(row.id)?.join(" + ") ?? row.serviceName }));
 }
 
 export async function listManagerBookings(localDate?: string) {
