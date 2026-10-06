@@ -916,6 +916,52 @@ function saveStoredExtraItems(map: Record<string, string[]>) {
   try { localStorage.setItem(BOOKING_EXTRA_ITEMS_KEY, JSON.stringify(map)); } catch { }
 }
 
+function extractBookingServices(
+  rawServiceName: string,
+  availableServices: { name: string; priceAmount: number }[]
+): { names: string[]; totalPrice: number } {
+  if (!rawServiceName) return { names: [], totalPrice: 0 };
+
+  // Sort available services by name length descending so composite names like
+  // "Capsule + Gel + Vernis" match before individual names like "Vernis" or "Gel"
+  const sorted = [...availableServices].sort((a, b) => b.name.length - a.name.length);
+
+  let remaining = rawServiceName;
+  const matchedNames: string[] = [];
+  let totalPrice = 0;
+
+  for (const s of sorted) {
+    if (!s.name) continue;
+    const escaped = s.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const regex = new RegExp(`(^|\\s*\\+\\s*|\\s*,\\s*)${escaped}(\\s*\\+\\s*|\\s*,\\s*|$)`, 'i');
+    if (regex.test(remaining)) {
+      matchedNames.push(s.name);
+      totalPrice += s.priceAmount;
+      remaining = remaining.replace(regex, '$1$2').trim();
+    }
+  }
+
+  // Check any remaining pieces separated by '+' or ','
+  const remainingParts = remaining.split(/\s*[\+,]\s*/).map((p) => p.trim()).filter(Boolean);
+  for (const part of remainingParts) {
+    const found = availableServices.find((s) => s.name.toLowerCase() === part.toLowerCase());
+    if (found) {
+      if (!matchedNames.includes(found.name)) {
+        matchedNames.push(found.name);
+        totalPrice += found.priceAmount;
+      }
+    } else if (part.length > 1) {
+      matchedNames.push(part);
+    }
+  }
+
+  if (matchedNames.length === 0) {
+    matchedNames.push(rawServiceName);
+  }
+
+  return { names: matchedNames, totalPrice };
+}
+
 function DashboardInner() {
   const { t } = useLanguage();
   const dashboard = useGetManagerDashboard();
@@ -1034,25 +1080,26 @@ function DashboardInner() {
   }, [rawBookings, phoneSearch, statusFilter]);
 
   const getBookingServicesList = (b: ManagerBooking) => {
-    const baseNames = b.serviceName ? b.serviceName.split(',').map((s) => s.trim()) : [];
+    const extracted = extractBookingServices(b.serviceName || '', allAvailableServices);
     const addedNames = extraItems[b.id] || [];
-    return [...baseNames, ...addedNames];
+    return [...extracted.names, ...addedNames];
+  };
+
+  const getBaseServicesCount = (b: ManagerBooking) => {
+    return extractBookingServices(b.serviceName || '', allAvailableServices).names.length;
   };
 
   const calculateBookingTotal = (b: ManagerBooking) => {
-    // Look up base service price by name since ManagerBooking doesn't carry price
-    const baseServiceNames = b.serviceName ? b.serviceName.split(',').map(s => s.trim()) : [];
-    let basePrice = 0;
-    baseServiceNames.forEach(name => {
-      const found = allAvailableServices.find(s => s.name.toLowerCase() === name.toLowerCase());
-      if (found) basePrice += found.priceAmount;
-    });
+    const extracted = extractBookingServices(b.serviceName || '', allAvailableServices);
+    const basePrice = (b as any).priceAmount || extracted.totalPrice;
+
     const addedNames = extraItems[b.id] || [];
     let addedPrice = 0;
     addedNames.forEach(name => {
       const found = allAvailableServices.find(s => s.name.toLowerCase() === name.toLowerCase());
       if (found) addedPrice += found.priceAmount;
     });
+
     const grossTotal = basePrice + addedPrice;
     const discountPercent = discounts[b.id] || 0;
     const discountAmount = Math.round((grossTotal * discountPercent) / 100);
@@ -1403,10 +1450,10 @@ function DashboardInner() {
                     {getBookingServicesList(editingCartBooking).map((item, idx) => (
                       <div key={idx} className="flex items-center justify-between gap-3 rounded-xl border border-border bg-secondary/30 px-3.5 py-2.5 text-xs">
                         <span className="font-medium truncate">{item}</span>
-                        {idx >= (editingCartBooking.serviceName?.split(',').length || 1) && (
+                        {idx >= getBaseServicesCount(editingCartBooking) && (
                           <button
                             type="button"
-                            onClick={() => handleRemoveServiceFromCart(editingCartBooking.id, idx - (editingCartBooking.serviceName?.split(',').length || 1))}
+                            onClick={() => handleRemoveServiceFromCart(editingCartBooking.id, idx - getBaseServicesCount(editingCartBooking))}
                             className="text-destructive hover:underline text-[11px]"
                           >
                             Retirer
