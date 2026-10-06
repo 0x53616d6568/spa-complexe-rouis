@@ -26,24 +26,32 @@ import { StaffManagementPanel } from '@/components/StaffManagementPanel';
 import {
   ArrowRight, ArrowUpRight, CalendarDays, Check, ChevronDown, ChevronLeft, ChevronRight, Clock3, Flower2, HeartHandshake,
   LoaderCircle, Menu, Moon, Pencil, Plus, RefreshCw, ShieldCheck, ShoppingBag, Sparkles, Sun, Trash2, Users, X,
+  Phone, PhoneCall, PhoneOff, Percent, Search, CheckCircle2, XCircle, AlertCircle, Edit3, User, Filter,
 } from 'lucide-react';
 
 const BOOKING_CART_STORAGE_KEY = 'stillroom-booking-cart';
 const BOOKING_CART_EVENT = 'stillroom-booking-cart-change';
 const COOKIE_CONSENT_KEY = 'complexe-rouis-cookie-consent';
 
-function readStoredCart(): string[] {
+export function readStoredCart(): string[] {
   try {
     const value = JSON.parse(localStorage.getItem(BOOKING_CART_STORAGE_KEY) || '[]');
-    return Array.isArray(value) ? value.filter((id): id is string => typeof id === 'string').slice(0, 8) : [];
+    return Array.isArray(value) ? value.filter((id): id is string => typeof id === 'string').slice(0, 12) : [];
   } catch { return []; }
 }
 
-function saveStoredCart(serviceIds: string[]) {
+export function saveStoredCart(serviceIds: string[]) {
   try {
-    localStorage.setItem(BOOKING_CART_STORAGE_KEY, JSON.stringify(serviceIds.slice(0, 8)));
+    localStorage.setItem(BOOKING_CART_STORAGE_KEY, JSON.stringify(serviceIds.slice(0, 12)));
     window.dispatchEvent(new Event(BOOKING_CART_EVENT));
   } catch { /* Cart still works for this page if storage is unavailable. */ }
+}
+
+export function addToCartHelper(serviceId: string) {
+  const current = readStoredCart();
+  if (!current.includes(serviceId)) {
+    saveStoredCart([...current, serviceId]);
+  }
 }
 
 function Meta({ title, description }: { title: string; description: string }) {
@@ -61,6 +69,167 @@ function Meta({ title, description }: { title: string; description: string }) {
   }, [title, description, t]);
   return null;
 }
+function CartDrawer({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const { t } = useLanguage();
+  const [, setLocation] = useLocation();
+  const services = useListServices();
+  const [cartIds, setCartIds] = useState<string[]>(() => readStoredCart());
+
+  useEffect(() => {
+    const update = () => setCartIds(readStoredCart());
+    window.addEventListener(BOOKING_CART_EVENT, update);
+    window.addEventListener('storage', update);
+    return () => {
+      window.removeEventListener(BOOKING_CART_EVENT, update);
+      window.removeEventListener('storage', update);
+    };
+  }, []);
+
+  const cartServices = useMemo(() => {
+    const all = Array.isArray(services.data) && services.data.length > 0 ? services.data : [];
+    return cartIds.map(id => {
+      const found = all.find(s => s.id === id);
+      if (found) return found;
+      const staticFound = ROUIS_SERVICES.find(s => s.id === id);
+      if (staticFound) {
+        return {
+          id: staticFound.id,
+          name: staticFound.name,
+          category: staticFound.category,
+          priceAmount: staticFound.price * 100,
+          currency: 'TND',
+          durationMinutes: 45,
+          shortDescription: staticFound.note || '',
+          discountPercent: 0,
+          originalPriceAmount: staticFound.price * 100,
+          isFeatured: false,
+          imageUrl: null,
+          slug: staticFound.id,
+          description: '',
+        } as Service;
+      }
+      return null;
+    }).filter((s): s is Service => Boolean(s));
+  }, [cartIds, services.data]);
+
+  const totalPrice = cartServices.reduce((sum, item) => sum + item.priceAmount, 0);
+  const totalDuration = cartServices.reduce((sum, item) => sum + item.durationMinutes, 0);
+
+  const removeItem = (id: string) => {
+    const next = cartIds.filter(item => item !== id);
+    setCartIds(next);
+    saveStoredCart(next);
+  };
+
+  const clearCart = () => {
+    setCartIds([]);
+    saveStoredCart([]);
+  };
+
+  const handleCheckout = () => {
+    onClose();
+    setLocation('/book');
+  };
+
+  if (!open) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex justify-end bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+      <div className="flex h-full w-full max-w-md flex-col justify-between bg-card p-6 shadow-2xl border-s border-border animate-in slide-in-from-right duration-300">
+        <div>
+          <div className="flex items-center justify-between border-b border-border/70 pb-4">
+            <div className="flex items-center gap-2.5">
+              <span className="grid h-10 w-10 place-items-center rounded-2xl bg-primary/10 text-primary">
+                <ShoppingBag size={20} />
+              </span>
+              <div>
+                <h3 className="serif text-2xl leading-none">{t('Mon Panier')}</h3>
+                <p className="mt-1 text-xs text-muted-foreground">{cartServices.length} {t('soin(s) sélectionné(s)')}</p>
+              </div>
+            </div>
+            <button
+              onClick={onClose}
+              className="rounded-full p-2 text-muted-foreground hover:bg-secondary hover:text-foreground transition"
+              aria-label="Fermer"
+            >
+              <X size={18} />
+            </button>
+          </div>
+
+          <div className="mt-4 max-h-[calc(100dvh-280px)] overflow-y-auto overscroll-contain pe-1 space-y-3">
+            {cartServices.length === 0 ? (
+              <div className="py-16 text-center">
+                <Flower2 className="mx-auto text-muted-foreground/30" size={44} />
+                <p className="serif mt-3 text-2xl">{t('Votre panier est vide')}</p>
+                <p className="mt-2 text-xs leading-5 text-muted-foreground max-w-xs mx-auto">{t('Parcourez nos soins et cliquez sur "+ Panier" pour composer votre séance personnalisée.')}</p>
+                <button
+                  onClick={() => { onClose(); setLocation('/services'); }}
+                  className="mt-6 inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-xs font-medium text-primary-foreground shadow-sm hover:opacity-95 transition"
+                >
+                  {t('Découvrir les soins')} <ArrowRight size={13} />
+                </button>
+              </div>
+            ) : (
+              cartServices.map((service, idx) => (
+                <div key={`${service.id}-${idx}`} className="flex items-center justify-between gap-3 rounded-2xl border border-border/70 bg-secondary/30 p-3.5 transition hover:border-primary/40">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium leading-tight truncate">{service.name}</p>
+                    <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
+                      <span className="rounded bg-background px-1.5 py-0.5 text-[10px] uppercase tracking-wider">{service.category}</span>
+                      <span>•</span>
+                      <span>{service.durationMinutes} min</span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3 shrink-0">
+                    <span className="font-semibold text-primary text-sm tabular-nums">
+                      {formatMoney(service.priceAmount, service.currency)}
+                    </span>
+                    <button
+                      onClick={() => removeItem(service.id)}
+                      className="rounded-full p-1.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition"
+                      title={t('Supprimer du panier')}
+                    >
+                      <Trash2 size={15} />
+                    </button>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+
+        {cartServices.length > 0 && (
+          <div className="border-t border-border/80 pt-4 space-y-3 bg-card">
+            <div className="flex items-center justify-between text-xs text-muted-foreground">
+              <span>{t('Durée totale estimée')}</span>
+              <span className="font-medium text-foreground">{totalDuration} min</span>
+            </div>
+            <div className="flex items-center justify-between text-base font-semibold">
+              <span>{t('Total à payer')}</span>
+              <span className="serif text-2xl text-primary">{formatMoney(totalPrice, 'TND')}</span>
+            </div>
+            <button
+              onClick={handleCheckout}
+              className="flex w-full items-center justify-center gap-2 rounded-full bg-primary py-3.5 text-sm font-medium text-primary-foreground shadow-md hover:opacity-95 transition"
+            >
+              <span>{t('Confirmer & Choisir créneau')}</span>
+              <ArrowRight size={16} />
+            </button>
+            <div className="flex items-center justify-between pt-1">
+              <button
+                onClick={clearCart}
+                className="text-[11px] text-muted-foreground hover:text-destructive transition underline"
+              >
+                {t('Vider le panier')}
+              </button>
+              <span className="text-[11px] text-muted-foreground">{t('Paiement au salon')}</span>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
 
 function HealthPip() {
   const health = useHealthCheck({ query: { refetchInterval: 60000, queryKey: getHealthCheckQueryKey() } });
@@ -72,6 +241,7 @@ function HealthPip() {
 
 export function SiteShell({ children }: { children: ReactNode }) {
   const [open, setOpen] = useState(false);
+  const [cartDrawerOpen, setCartDrawerOpen] = useState(false);
   const [cartCount, setCartCount] = useState(() => readStoredCart().length);
   const [cookieChoice, setCookieChoice] = useState<'accepted' | 'rejected' | null>(null);
   const [showCookieDetails, setShowCookieDetails] = useState(false);
@@ -82,6 +252,7 @@ export function SiteShell({ children }: { children: ReactNode }) {
   const { user } = useUser();
   const { language, setLanguage, t } = useLanguage();
   const { resolvedTheme, setTheme } = useTheme();
+
   useEffect(() => {
     const updateCartCount = () => setCartCount(readStoredCart().length);
     window.addEventListener('storage', updateCartCount);
@@ -91,23 +262,27 @@ export function SiteShell({ children }: { children: ReactNode }) {
       window.removeEventListener(BOOKING_CART_EVENT, updateCartCount);
     };
   }, []);
+
   useEffect(() => {
     try {
       const saved = localStorage.getItem(COOKIE_CONSENT_KEY);
       if (saved === 'accepted' || saved === 'rejected') setCookieChoice(saved);
     } catch { /* Consent prompt remains available if storage is disabled. */ }
   }, []);
+
   const saveCookieChoice = (choice: 'accepted' | 'rejected') => {
     try { localStorage.setItem(COOKIE_CONSENT_KEY, choice); } catch { /* Keep the choice for this page view. */ }
     setCookieChoice(choice);
     setShowCookieDetails(false);
   };
+
   const role = typeof user?.publicMetadata?.role === 'string' ? user.publicMetadata.role : null;
   const isStaffVisible = role === 'manager' || role === 'admin';
   const nav = [
     { href: '/', label: t('Home') }, { href: '/services', label: t('Treatments') },
     { href: '/policies', label: t('Visit information') }, ...(isStaffVisible ? [{ href: '/manager', label: t('Staff') }] : []),
   ];
+
   return <div className="min-h-[100dvh] bg-background text-foreground">
     <div className="border-b border-border/70 bg-secondary/65 px-4 py-2 text-center text-[11px] tracking-[.16em] text-muted-foreground">
       Ouvert 7j/7 · 09:00 – 19:00 · Complexe Rouis d'Esthétique
@@ -134,7 +309,20 @@ export function SiteShell({ children }: { children: ReactNode }) {
           ) : (
             <Link href="/sign-in" className="hidden whitespace-nowrap ps-3 text-[13px] text-foreground/70 hover:text-primary sm:block" data-testid="link-sign-in">{t('Sign in')}</Link>
           )}
-          <Link href="/book" aria-label={`${t('Cart')}, ${cartCount}`} title={t('Cart')} className="relative hidden items-center gap-1.5 rounded-full border border-border px-2.5 py-2 text-xs text-foreground/80 transition hover:border-primary hover:text-primary md:inline-flex" data-testid="link-header-cart"><ShoppingBag size={16}/><span>{t('Cart')}</span><span className="grid min-h-5 min-w-5 place-items-center rounded-full bg-primary px-1 text-[10px] font-semibold text-primary-foreground">{cartCount}</span></Link>
+          <button
+            type="button"
+            onClick={() => setCartDrawerOpen(true)}
+            aria-label={`${t('Cart')}, ${cartCount}`}
+            title={t('Mon Panier')}
+            className="relative inline-flex items-center gap-2 rounded-full border border-border bg-card px-3 py-2 text-xs text-foreground/80 transition hover:border-primary hover:text-primary shadow-sm"
+            data-testid="link-header-cart"
+          >
+            <ShoppingBag size={16}/>
+            <span className="hidden sm:inline font-medium">{t('Panier')}</span>
+            <span className="grid min-h-5 min-w-5 place-items-center rounded-full bg-primary px-1 text-[10px] font-semibold text-primary-foreground">
+              {cartCount}
+            </span>
+          </button>
           <button className="hidden rounded-full bg-primary px-5 py-3 text-xs font-semibold tracking-wide text-primary-foreground transition hover:-translate-y-0.5 md:block" onClick={() => setLocation('/book')} data-testid="button-header-book">{t('Find a time')} <ArrowRight className="ms-2 inline" size={14}/></button>
           <button aria-label={t('Find a time')} className="inline-flex shrink-0 items-center gap-1 rounded-full bg-primary px-2.5 py-2 text-[10px] font-semibold text-primary-foreground min-[370px]:px-3 min-[370px]:text-[11px] md:hidden" onClick={() => setLocation('/book')} data-testid="button-header-book-mobile"><span className="truncate">{t('Find a time')}</span><ArrowRight size={13} className="shrink-0"/></button>
           <select aria-label={t('Language')} value={language} onChange={event=>setLanguage(event.target.value as 'en'|'fr'|'ar')} className="hidden max-w-[104px] rounded-full border border-border bg-card px-2 py-2 text-xs md:block"><option value="en">English</option><option value="fr">Fran&#231;ais</option><option value="ar">&#1575;&#1604;&#1593;&#1585;&#1576;&#1610;&#1577;</option></select>
@@ -142,9 +330,26 @@ export function SiteShell({ children }: { children: ReactNode }) {
           <button className="rounded-full p-2 md:hidden" onClick={() => setOpen(!open)} aria-label={open ? t('Close menu') : t('Open menu')} data-testid="button-mobile-menu">{open ? <X size={21}/> : <Menu size={21}/>}</button>
         </div>
       </div>
-      {open && <nav className="grid max-h-[calc(100dvh-8rem)] w-full gap-1 overflow-y-auto overscroll-contain border-t border-border px-4 py-3 md:hidden"><div className="flex items-center justify-between gap-3 px-3 py-2"><label htmlFor="mobile-language" className="text-sm">{t('Language')}</label><select id="mobile-language" value={language} onChange={event=>setLanguage(event.target.value as 'en'|'fr'|'ar')} className="max-w-[65%] rounded-full border border-border bg-card px-3 py-2 text-xs"><option value="en">English</option><option value="fr">Fran&#231;ais</option><option value="ar">&#1575;&#1604;&#1593;&#1585;&#1576;&#1610;&#1577;</option></select></div><button type="button" onClick={()=>setTheme(resolvedTheme==='dark'?'light':'dark')} className="flex items-center gap-2 rounded-lg px-3 py-3 text-start text-sm hover:bg-secondary">{resolvedTheme==='dark'?<Sun size={16}/>:<Moon size={16}/>} {t(resolvedTheme==='dark'?'Switch to light mode':'Switch to dark mode')}</button>{nav.map(item => <Link key={item.href} onClick={() => setOpen(false)} href={item.href} className="rounded-lg px-3 py-3 text-sm hover:bg-secondary">{item.label}</Link>)}<Link onClick={() => setOpen(false)} href="/book" className="rounded-lg border border-border px-3 py-3 text-sm">{t('Cart')} ({cartCount})</Link>{user ? <button type="button" onClick={() => void signOut({ redirectUrl: window.location.origin + '/sign-in' })} className="rounded-lg bg-secondary px-3 py-3 text-start text-sm">{t('Sign out')}</button> : <Link onClick={() => setOpen(false)} href="/sign-in" className="rounded-lg bg-secondary px-3 py-3 text-sm">{t('Sign in')}</Link>}</nav>}
+      {open && <nav className="grid max-h-[calc(100dvh-8rem)] w-full gap-1 overflow-y-auto overscroll-contain border-t border-border px-4 py-3 md:hidden"><div className="flex items-center justify-between gap-3 px-3 py-2"><label htmlFor="mobile-language" className="text-sm">{t('Language')}</label><select id="mobile-language" value={language} onChange={event=>setLanguage(event.target.value as 'en'|'fr'|'ar')} className="max-w-[65%] rounded-full border border-border bg-card px-3 py-2 text-xs"><option value="en">English</option><option value="fr">Fran&#231;ais</option><option value="ar">&#1575;&#1604;&#1593;&#1585;&#1576;&#1610;&#1577;</option></select></div><button type="button" onClick={()=>setTheme(resolvedTheme==='dark'?'light':'dark')} className="flex items-center gap-2 rounded-lg px-3 py-3 text-start text-sm hover:bg-secondary">{resolvedTheme==='dark'?<Sun size={16}/>:<Moon size={16}/>} {t(resolvedTheme==='dark'?'Switch to light mode':'Switch to dark mode')}</button>{nav.map(item => <Link key={item.href} onClick={() => setOpen(false)} href={item.href} className="rounded-lg px-3 py-3 text-sm hover:bg-secondary">{item.label}</Link>)}<button type="button" onClick={() => { setOpen(false); setCartDrawerOpen(true); }} className="rounded-lg border border-border px-3 py-3 text-start text-sm flex items-center justify-between"><span>{t('Mon Panier')}</span><span className="rounded-full bg-primary px-2 py-0.5 text-xs text-primary-foreground font-semibold">{cartCount}</span></button>{user ? <button type="button" onClick={() => void signOut({ redirectUrl: window.location.origin + '/sign-in' })} className="rounded-lg bg-secondary px-3 py-3 text-start text-sm">{t('Sign out')}</button> : <Link onClick={() => setOpen(false)} href="/sign-in" className="rounded-lg bg-secondary px-3 py-3 text-start text-sm">{t('Sign in')}</Link>}</nav>}
     </header>
-    <Link href="/book" aria-label={`${t('Cart')}, ${cartCount}`} title={t('Cart')} className={`fixed bottom-4 end-4 z-40 inline-flex h-12 items-center gap-2 rounded-full bg-primary px-4 text-sm text-primary-foreground shadow-lg md:hidden ${open || currentLocation === '/book' ? 'hidden' : ''}`} data-testid="link-floating-cart"><ShoppingBag size={18}/><span>{t('Cart')}</span><span className="grid min-h-5 min-w-5 place-items-center rounded-full bg-background px-1 text-[10px] font-semibold text-primary">{cartCount}</span></Link>
+    
+    <button
+      type="button"
+      onClick={() => setCartDrawerOpen(true)}
+      aria-label={`${t('Cart')}, ${cartCount}`}
+      title={t('Mon Panier')}
+      className={`fixed bottom-5 end-5 z-40 inline-flex h-14 items-center gap-2.5 rounded-full bg-primary px-5 text-sm font-semibold text-primary-foreground shadow-2xl hover:scale-105 transition active:scale-95 ${open || currentLocation === '/book' ? 'hidden' : ''}`}
+      data-testid="link-floating-cart"
+    >
+      <ShoppingBag size={20}/>
+      <span>{t('Panier')}</span>
+      <span className="grid min-h-6 min-w-6 place-items-center rounded-full bg-background px-1.5 text-xs font-bold text-primary">
+        {cartCount}
+      </span>
+    </button>
+
+    <CartDrawer open={cartDrawerOpen} onClose={() => setCartDrawerOpen(false)} />
+
     {children}
     <footer className="bg-primary px-5 py-12 text-primary-foreground md:px-10">
       <div className="mx-auto grid max-w-[1320px] gap-10 md:grid-cols-[1.3fr_1fr_1fr]">
@@ -170,6 +375,15 @@ function ErrorBlock({ retry }: { retry: () => void }) {
 function DynamicServiceCard({ service }: { service: Service }) {
   const { t } = useLanguage();
   const [, setLocation] = useLocation();
+  const [added, setAdded] = useState(false);
+
+  const handleAddToCart = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    addToCartHelper(service.id);
+    setAdded(true);
+    setTimeout(() => setAdded(false), 2000);
+  };
 
   return (
     <div className="group flex flex-col justify-between overflow-hidden rounded-[1.4rem] border border-border/70 bg-card transition duration-300 hover:-translate-y-1 hover:shadow-lg" data-testid={`card-service-${service.id}`}>
@@ -206,18 +420,33 @@ function DynamicServiceCard({ service }: { service: Service }) {
         </div>
       </Link>
       <div className="px-5 pb-5 pt-0">
-        <div className="flex items-center justify-between border-t border-border/70 pt-4 text-xs">
+        <div className="flex items-center justify-between border-t border-border/70 pt-4 text-xs gap-2">
           <div className="flex flex-col">
-            <span className="flex flex-col items-end"><span className="font-semibold text-primary text-sm">{formatMoney(service.priceAmount, service.currency)}</span>{service.discountPercent>0&&<span className="text-[10px]"><del className="me-1 text-muted-foreground">{formatMoney(service.originalPriceAmount,service.currency)}</del><span className="font-semibold text-destructive">-{service.discountPercent}%</span></span>}</span>
+            <span className="flex flex-col items-start"><span className="font-semibold text-primary text-sm">{formatMoney(service.priceAmount, service.currency)}</span>{service.discountPercent>0&&<span className="text-[10px]"><del className="me-1 text-muted-foreground">{formatMoney(service.originalPriceAmount,service.currency)}</del><span className="font-semibold text-destructive">-{service.discountPercent}%</span></span>}</span>
             <span className="text-[10px] text-muted-foreground">{service.durationMinutes} min</span>
           </div>
-          <button
-            type="button"
-            onClick={() => setLocation(`/book?service=${service.id}`)}
-            className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 hover:bg-primary px-3.5 py-1.5 text-xs font-medium text-primary hover:text-primary-foreground transition"
-          >
-            {t('Book')} <ArrowRight size={12} />
-          </button>
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={handleAddToCart}
+              title={t('Ajouter au panier')}
+              className={`inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-medium transition ${
+                added
+                  ? 'bg-emerald-600 text-white shadow-sm'
+                  : 'border border-primary/35 bg-primary/5 hover:bg-primary/15 text-primary'
+              }`}
+            >
+              {added ? <Check size={12} /> : <Plus size={12} />}
+              <span>{added ? t('Ajouté !') : t('+ Panier')}</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setLocation(`/book?service=${service.id}`)}
+              className="inline-flex items-center gap-1 rounded-full bg-primary hover:opacity-90 px-3.5 py-1.5 text-xs font-medium text-primary-foreground transition shadow-sm"
+            >
+              {t('Book')} <ArrowRight size={12} />
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -430,12 +659,26 @@ export function ServiceDetailPage({ slug }: { slug: string }) {
                   <p className="mt-2 flex flex-wrap items-center gap-2 text-sm font-semibold text-primary">{formatMoney(s.priceAmount, s.currency)}{s.discountPercent>0&&<><del className="text-xs font-normal text-muted-foreground">{formatMoney(s.originalPriceAmount,s.currency)}</del><span className="rounded-full bg-destructive/10 px-2 py-1 text-[10px] text-destructive">-{s.discountPercent}%</span></>}</p>
                 </div>
               </div>
-              <button
-                onClick={() => setLocation(`/book?service=${s.id}`)}
-                className="mt-8 flex w-full items-center justify-between rounded-full bg-primary px-6 py-4 text-start text-sm text-primary-foreground hover:opacity-95 transition"
-              >
-                {t('Find a time for this treatment')} <ArrowRight size={16} />
-              </button>
+              <div className="mt-8 flex flex-col sm:flex-row items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    addToCartHelper(s.id);
+                  }}
+                  className="inline-flex w-full sm:w-auto flex-1 items-center justify-center gap-2 rounded-full border border-primary/40 bg-primary/5 hover:bg-primary/15 px-6 py-4 text-sm font-medium text-primary transition"
+                >
+                  <ShoppingBag size={17} />
+                  <span>{t('Ajouter au panier')}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setLocation(`/book?service=${s.id}`)}
+                  className="inline-flex w-full sm:w-auto flex-1 items-center justify-center gap-2 rounded-full bg-primary px-6 py-4 text-sm font-medium text-primary-foreground shadow-md hover:opacity-95 transition"
+                >
+                  <span>{t('Réserver maintenant')}</span>
+                  <ArrowRight size={16} />
+                </button>
+              </div>
             </div>
           </div>
         )}
@@ -652,23 +895,565 @@ export function PoliciesPage({privacy=false}:{privacy?:boolean}) {
 }
 function InfoPanel({title,children}:{title:string;children:ReactNode}) { return <section className="rounded-2xl border border-border bg-card p-6"><h2 className="serif text-3xl">{title}</h2><div className="mt-4 text-sm leading-6 text-muted-foreground">{children}</div></section> }
 
+const BOOKING_DISCOUNTS_KEY = 'stillroom-booking-discounts';
+const BOOKING_EXTRA_ITEMS_KEY = 'stillroom-booking-extra-items';
+
+function readStoredDiscounts(): Record<string, number> {
+  try {
+    return JSON.parse(localStorage.getItem(BOOKING_DISCOUNTS_KEY) || '{}');
+  } catch { return {}; }
+}
+function saveStoredDiscounts(map: Record<string, number>) {
+  try { localStorage.setItem(BOOKING_DISCOUNTS_KEY, JSON.stringify(map)); } catch { }
+}
+
+function readStoredExtraItems(): Record<string, string[]> {
+  try {
+    return JSON.parse(localStorage.getItem(BOOKING_EXTRA_ITEMS_KEY) || '{}');
+  } catch { return {}; }
+}
+function saveStoredExtraItems(map: Record<string, string[]>) {
+  try { localStorage.setItem(BOOKING_EXTRA_ITEMS_KEY, JSON.stringify(map)); } catch { }
+}
+
 function DashboardInner() {
-  const dashboard=useGetManagerDashboard();
-  const bookings=useListManagerBookings({date:dateLocal(new Date())});
-  const staff=useListManagerStaff();
-  const qc=useQueryClient();
-  const update=useUpdateBookingStatus();
-  const assign=useAssignBookingStaff();
-  const [assignmentMessage,setAssignmentMessage]=useState('');
-  const [assignmentError,setAssignmentError]=useState('');
-  const retry=()=>{void dashboard.refetch();void bookings.refetch()};
-  const change=(booking:ManagerBooking,status:'confirmed'|'checked_in'|'completed'|'cancelled'|'no_show')=>update.mutate({id:booking.id,data:{status}},{onSuccess:()=>{void qc.invalidateQueries({queryKey:getListManagerBookingsQueryKey({date:dateLocal(new Date())})});void qc.invalidateQueries({queryKey:getGetManagerDashboardQueryKey()});void qc.invalidateQueries({queryKey:['audit-logs']})}});
-  const assignStaff=(booking:ManagerBooking, staffId:string|null)=> {
-    setAssignmentMessage(''); setAssignmentError('');
-    assign.mutate({id:booking.id,data:{staffId}},{onSuccess:()=>{setAssignmentMessage(`Therapist assignment updated for ${booking.bookingReference}.`);void qc.invalidateQueries({queryKey:getListManagerBookingsQueryKey({date:dateLocal(new Date())})});void qc.invalidateQueries({queryKey:getGetManagerDashboardQueryKey()});void qc.invalidateQueries({queryKey:['audit-logs']})},onError:()=>setAssignmentError(`Could not update therapist assignment for ${booking.bookingReference}. Please try again.`)});
+  const { t } = useLanguage();
+  const dashboard = useGetManagerDashboard();
+  const bookings = useListManagerBookings({ date: dateLocal(new Date()) });
+  const allServicesQuery = useListServices();
+  const staff = useListManagerStaff();
+  const qc = useQueryClient();
+  const update = useUpdateBookingStatus();
+  const assign = useAssignBookingStaff();
+
+  const [phoneSearch, setPhoneSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [discounts, setDiscounts] = useState<Record<string, number>>(() => readStoredDiscounts());
+  const [extraItems, setExtraItems] = useState<Record<string, string[]>>(() => readStoredExtraItems());
+  const [editingCartBooking, setEditingCartBooking] = useState<ManagerBooking | null>(null);
+  const [serviceToAdd, setServiceToAdd] = useState<string>('');
+  const [customDiscountBookingId, setCustomDiscountBookingId] = useState<string | null>(null);
+  const [assignmentMessage, setAssignmentMessage] = useState('');
+  const [assignmentError, setAssignmentError] = useState('');
+
+  const allAvailableServices = useMemo(() => {
+    if (Array.isArray(allServicesQuery.data) && allServicesQuery.data.length > 0) {
+      return allServicesQuery.data;
+    }
+    return ROUIS_SERVICES.map(s => ({
+      id: s.id,
+      name: s.name,
+      category: s.category,
+      priceAmount: s.price * 100,
+      currency: 'TND',
+      durationMinutes: 45,
+      shortDescription: s.note || '',
+      discountPercent: 0,
+      originalPriceAmount: s.price * 100,
+      isFeatured: false,
+      imageUrl: null,
+      slug: s.id,
+      description: '',
+      isActive: true,
+    } as Service));
+  }, [allServicesQuery.data]);
+
+  const retry = () => { void dashboard.refetch(); void bookings.refetch(); };
+
+  const changeStatus = (booking: ManagerBooking, status: 'confirmed' | 'checked_in' | 'completed' | 'cancelled' | 'no_show' | 'pending') => {
+    update.mutate(
+      { id: booking.id, data: { status: status as any } },
+      {
+        onSuccess: () => {
+          void qc.invalidateQueries({ queryKey: getListManagerBookingsQueryKey({ date: dateLocal(new Date()) }) });
+          void qc.invalidateQueries({ queryKey: getGetManagerDashboardQueryKey() });
+          void qc.invalidateQueries({ queryKey: ['audit-logs'] });
+        },
+      }
+    );
   };
-  const statusLabel=(s:string)=>s.replaceAll('_',' ');
-  return <div className="mt-8">{dashboard.isLoading||bookings.isLoading?<LoadingBlock label="Loading today's schedule"/>:dashboard.isError||bookings.isError?<ErrorBlock retry={retry}/>:<><div className="grid gap-4 sm:grid-cols-3">{[['Today',dashboard.data?.todayCount],['Awaiting',dashboard.data?.pendingCount],['Completed',dashboard.data?.completedCount]].map(([label,value])=><div key={String(label)} className="rounded-2xl border border-border bg-card p-5"><p className="mono text-[9px] tracking-[.16em] text-muted-foreground">{label}</p><p className="serif mt-2 text-4xl">{value ?? '—'}</p></div>)}</div><div className="mt-5 rounded-2xl bg-primary p-6 text-primary-foreground md:flex md:items-center md:justify-between"><div><p className="mono text-[9px] tracking-[.18em] text-primary-foreground/60">UP NEXT</p>{dashboard.data?.nextBooking?<><p className="serif mt-2 text-3xl">{dashboard.data.nextBooking.customerName}</p><p className="mt-1 text-sm text-primary-foreground/75">{dashboard.data.nextBooking.serviceName} · {new Date(dashboard.data.nextBooking.startsAt).toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit'})}</p></>:<p className="serif mt-2 text-3xl">No upcoming booking</p>}</div><CalendarDays className="mt-4 text-primary-foreground/55 md:mt-0" size={34}/></div><div className="mt-10"><div className="flex items-end justify-between"><div><p className="mono text-[9px] tracking-[.18em] text-primary">LIVE APPOINTMENTS</p><h2 className="serif mt-2 text-4xl">Today's schedule</h2></div><span className="text-xs text-muted-foreground">{new Date().toLocaleDateString(undefined,{weekday:'long',month:'long',day:'numeric'})}</span></div>{assignmentMessage&&<p className="mt-4 rounded-xl bg-secondary px-4 py-3 text-xs text-primary" role="status" data-testid="status-assignment-success">{assignmentMessage}</p>}{assignmentError&&<p className="mt-4 rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3 text-xs text-destructive" role="alert" data-testid="status-assignment-error">{assignmentError}</p>}{Array.isArray(bookings.data)&&bookings.data.length?<div className="mt-5 space-y-3">{bookings.data.map(booking=><div key={booking.id} className="rounded-2xl border border-border bg-card p-4 md:flex md:items-center md:gap-5"><div className="mono w-20 shrink-0 text-sm">{new Date(booking.startsAt).toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit'})}</div><div className="min-w-0 flex-1"><p className="font-medium">{booking.customerName}<span className="ml-2 text-[10px] text-muted-foreground">#{booking.bookingReference}</span></p><p className="mt-1 text-xs text-muted-foreground">{booking.serviceName} · {booking.customerEmail} · {booking.customerPhone}</p><p className="mt-1 text-[11px] text-primary">{booking.staffName ? `With ${booking.staffName}` : 'No therapist assigned'}</p></div><div className="my-3 flex flex-wrap items-center gap-2 md:my-0"><span className="inline-block rounded-full bg-secondary px-3 py-1.5 text-[10px] capitalize">{statusLabel(booking.status)}</span><label className="sr-only" htmlFor={`assign-${booking.id}`}>Assign therapist to {booking.customerName}</label><select id={`assign-${booking.id}`} value={(Array.isArray(staff.data)?staff.data:[]).find(person=>person.displayName===booking.staffName)?.id||''} onChange={event=>assignStaff(booking,event.target.value||null)} disabled={assign.isPending||staff.isLoading||staff.isError} className="max-w-[190px] rounded-full border border-input bg-background px-3 py-2 text-[10px]" data-testid={`select-assign-staff-${booking.id}`}><option value="">Unassigned</option>{(Array.isArray(staff.data)?staff.data:[]).filter(person=>person.isActive&&(person.serviceIds.length===0||person.serviceIds.some(id=>id===booking.id))).map((person:StaffProfile)=><option key={person.id} value={person.id}>{person.displayName}</option>)}</select></div><div className="flex flex-wrap gap-2 md:ml-2">{booking.status==='pending'&&<StatusAction label="Confirm" onClick={()=>change(booking,'confirmed')} disabled={update.isPending}/>} {booking.status==='confirmed'&&<StatusAction label="Check in" onClick={()=>change(booking,'checked_in')} disabled={update.isPending}/>} {booking.status==='checked_in'&&<StatusAction label="Complete" onClick={()=>change(booking,'completed')} disabled={update.isPending}/>} {['pending','confirmed'].includes(booking.status)&&<button onClick={()=>{if(window.confirm(`Cancel booking ${booking.bookingReference}?`))change(booking,'cancelled')}} className="rounded-full border border-border px-3 py-2 text-[10px] hover:bg-destructive/10" data-testid={`button-cancel-${booking.id}`}>Cancel</button>}</div></div>)}</div>:<div className="mt-5 rounded-2xl border border-dashed border-border p-10 text-center"><CalendarDays className="mx-auto text-primary" size={28}/><p className="serif mt-3 text-3xl">A clear day, so far.</p><p className="mt-2 text-sm text-muted-foreground">There are no bookings returned for today.</p></div>}{staff.isError&&<p className="mt-3 text-xs text-muted-foreground">Therapist roster could not load. Refresh to retry assignments.</p>}</div></>}</div>;
+
+  const assignStaff = (booking: ManagerBooking, staffId: string | null) => {
+    setAssignmentMessage('');
+    setAssignmentError('');
+    assign.mutate(
+      { id: booking.id, data: { staffId } },
+      {
+        onSuccess: () => {
+          setAssignmentMessage(`Esthéticienne assignée avec succès pour ${booking.customerName}.`);
+          void qc.invalidateQueries({ queryKey: getListManagerBookingsQueryKey({ date: dateLocal(new Date()) }) });
+          void qc.invalidateQueries({ queryKey: getGetManagerDashboardQueryKey() });
+        },
+        onError: () => setAssignmentError(`Erreur lors de l'assignation pour ${booking.customerName}.`),
+      }
+    );
+  };
+
+  const handleSetDiscount = (bookingId: string, percent: number) => {
+    const valid = Math.max(0, Math.min(50, Math.round(percent)));
+    const next = { ...discounts, [bookingId]: valid };
+    setDiscounts(next);
+    saveStoredDiscounts(next);
+  };
+
+  const handleAddServiceToCart = (bookingId: string, serviceName: string) => {
+    if (!serviceName) return;
+    const current = extraItems[bookingId] || [];
+    const next = { ...extraItems, [bookingId]: [...current, serviceName] };
+    setExtraItems(next);
+    saveStoredExtraItems(next);
+    setServiceToAdd('');
+  };
+
+  const handleRemoveServiceFromCart = (bookingId: string, indexToRemove: number) => {
+    const current = extraItems[bookingId] || [];
+    const next = { ...extraItems, [bookingId]: current.filter((_, idx) => idx !== indexToRemove) };
+    setExtraItems(next);
+    saveStoredExtraItems(next);
+  };
+
+  const rawBookings = Array.isArray(bookings.data) ? bookings.data : [];
+
+  const filteredBookings = useMemo(() => {
+    return rawBookings.filter((b) => {
+      const matchSearch =
+        phoneSearch.trim() === '' ||
+        (b.customerPhone && b.customerPhone.toLowerCase().includes(phoneSearch.toLowerCase().trim())) ||
+        (b.customerName && b.customerName.toLowerCase().includes(phoneSearch.toLowerCase().trim())) ||
+        (b.bookingReference && b.bookingReference.toLowerCase().includes(phoneSearch.toLowerCase().trim()));
+
+      const matchStatus =
+        statusFilter === 'all' ||
+        (statusFilter === 'pending' && b.status === 'pending') ||
+        (statusFilter === 'confirmed' && b.status === 'confirmed') ||
+        (statusFilter === 'cancelled' && (b.status === 'cancelled' || b.status === 'no_show')) ||
+        (statusFilter === 'completed' && (b.status === 'completed' || b.status === 'checked_in'));
+
+      return matchSearch && matchStatus;
+    });
+  }, [rawBookings, phoneSearch, statusFilter]);
+
+  const getBookingServicesList = (b: ManagerBooking) => {
+    const baseNames = b.serviceName ? b.serviceName.split(',').map((s) => s.trim()) : [];
+    const addedNames = extraItems[b.id] || [];
+    return [...baseNames, ...addedNames];
+  };
+
+  const calculateBookingTotal = (b: ManagerBooking) => {
+    const basePrice = b.priceAmount || 0;
+    const addedNames = extraItems[b.id] || [];
+    let addedPrice = 0;
+    addedNames.forEach(name => {
+      const found = allAvailableServices.find(s => s.name.toLowerCase() === name.toLowerCase());
+      if (found) addedPrice += found.priceAmount;
+    });
+    const grossTotal = basePrice + addedPrice;
+    const discountPercent = discounts[b.id] || 0;
+    const discountAmount = Math.round((grossTotal * discountPercent) / 100);
+    const netTotal = Math.max(0, grossTotal - discountAmount);
+    return { grossTotal, discountPercent, discountAmount, netTotal, currency: b.currency || 'TND' };
+  };
+
+  return (
+    <div className="mt-8 space-y-8">
+      {dashboard.isLoading || bookings.isLoading ? (
+        <LoadingBlock label="Chargement des réservations et paniers..." />
+      ) : dashboard.isError || bookings.isError ? (
+        <ErrorBlock retry={retry} />
+      ) : (
+        <>
+          {/* Dashboard Summary Cards */}
+          <div className="grid gap-4 sm:grid-cols-4">
+            <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
+              <p className="mono text-[9px] tracking-[.16em] text-muted-foreground">TOTAL AUJOURD'HUI</p>
+              <p className="serif mt-2 text-4xl font-semibold text-foreground">{rawBookings.length}</p>
+            </div>
+            <div className="rounded-2xl border border-amber-500/20 bg-amber-500/5 p-5 shadow-sm">
+              <p className="mono text-[9px] tracking-[.16em] text-amber-700 dark:text-amber-400">EN ATTENTE D'APPEL</p>
+              <p className="serif mt-2 text-4xl font-semibold text-amber-700 dark:text-amber-400">
+                {rawBookings.filter((b) => b.status === 'pending').length}
+              </p>
+            </div>
+            <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-5 shadow-sm">
+              <p className="mono text-[9px] tracking-[.16em] text-emerald-700 dark:text-emerald-400">CONFIRMÉS PAR APPEL</p>
+              <p className="serif mt-2 text-4xl font-semibold text-emerald-700 dark:text-emerald-400">
+                {rawBookings.filter((b) => b.status === 'confirmed').length}
+              </p>
+            </div>
+            <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
+              <p className="mono text-[9px] tracking-[.16em] text-muted-foreground">TERMINÉS / ENCAISSÉS</p>
+              <p className="serif mt-2 text-4xl font-semibold text-primary">
+                {rawBookings.filter((b) => b.status === 'completed' || b.status === 'checked_in').length}
+              </p>
+            </div>
+          </div>
+
+          {/* Search & Filter Toolbar */}
+          <div className="rounded-[1.5rem] border border-border bg-card p-5 sm:p-6 shadow-sm">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+              <div className="relative flex-1 max-w-lg">
+                <Search size={17} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                <input
+                  type="text"
+                  value={phoneSearch}
+                  onChange={(e) => setPhoneSearch(e.target.value)}
+                  placeholder="Recherche par numéro de téléphone (ex: 98..., +216) ou nom client..."
+                  className="w-full rounded-full border border-input bg-background pl-10 pr-4 py-2.5 text-sm focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:outline-none shadow-sm"
+                />
+                {phoneSearch && (
+                  <button
+                    onClick={() => setPhoneSearch('')}
+                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs text-muted-foreground hover:text-foreground"
+                  >
+                    Effacer
+                  </button>
+                )}
+              </div>
+
+              {/* Status Filter Chips */}
+              <div className="flex flex-wrap gap-1.5 items-center">
+                <span className="text-xs text-muted-foreground me-1 hidden sm:inline">Filtrer :</span>
+                {[
+                  ['all', 'Tous'],
+                  ['pending', '🟡 En attente appel'],
+                  ['confirmed', '🟢 Confirmés'],
+                  ['completed', '🔵 Terminés'],
+                  ['cancelled', '🔴 Injoignables / Rejetés'],
+                ].map(([val, lbl]) => (
+                  <button
+                    key={val}
+                    onClick={() => setStatusFilter(val)}
+                    className={`rounded-full px-3.5 py-1.5 text-xs font-medium transition ${
+                      statusFilter === val
+                        ? 'bg-primary text-primary-foreground shadow-sm'
+                        : 'border border-border bg-background hover:bg-secondary text-foreground/80'
+                    }`}
+                  >
+                    {lbl}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Feedback banners */}
+          {assignmentMessage && (
+            <p className="rounded-xl bg-emerald-500/10 border border-emerald-500/20 px-4 py-3 text-xs text-emerald-700 dark:text-emerald-300 flex items-center gap-2" role="status">
+              <CheckCircle2 size={16} /> {assignmentMessage}
+            </p>
+          )}
+          {assignmentError && (
+            <p className="rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3 text-xs text-destructive flex items-center gap-2" role="alert">
+              <AlertCircle size={16} /> {assignmentError}
+            </p>
+          )}
+
+          {/* Bookings & Carts Management Table / Cards */}
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="mono text-[9px] tracking-[.18em] text-primary">GESTION DES APPELS & PANIERS</p>
+                <h2 className="serif text-3xl mt-1">Réservations Clients</h2>
+              </div>
+              <span className="text-xs text-muted-foreground">
+                {filteredBookings.length} réservation(s) affichée(s)
+              </span>
+            </div>
+
+            {filteredBookings.length === 0 ? (
+              <div className="rounded-[1.5rem] border border-dashed border-border p-12 text-center bg-card/50">
+                <CalendarDays className="mx-auto text-muted-foreground/40" size={36} />
+                <p className="serif mt-3 text-2xl">Aucune réservation correspondante</p>
+                <p className="mt-1 text-xs text-muted-foreground">Modifiez votre recherche par téléphone ou le filtre de statut.</p>
+              </div>
+            ) : (
+              <div className="grid gap-4">
+                {filteredBookings.map((b) => {
+                  const servicesList = getBookingServicesList(b);
+                  const { grossTotal, discountPercent, discountAmount, netTotal, currency } = calculateBookingTotal(b);
+                  const isCallPending = b.status === 'pending';
+                  const isConfirmed = b.status === 'confirmed';
+                  const isCancelled = b.status === 'cancelled' || b.status === 'no_show';
+                  const isCompleted = b.status === 'completed' || b.status === 'checked_in';
+
+                  return (
+                    <div
+                      key={b.id}
+                      className={`rounded-[1.4rem] border p-5 bg-card transition shadow-sm hover:shadow-md ${
+                        isCallPending
+                          ? 'border-amber-500/40 bg-amber-500/[0.02]'
+                          : isConfirmed
+                          ? 'border-emerald-500/30 bg-emerald-500/[0.02]'
+                          : isCancelled
+                          ? 'border-border/60 opacity-70 bg-muted/20'
+                          : 'border-border'
+                      }`}
+                    >
+                      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                        {/* Client Info & Direct Call */}
+                        <div className="space-y-2 min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-2.5">
+                            <span className="serif text-2xl font-medium text-foreground">{b.customerName}</span>
+                            <span className="mono rounded-md bg-secondary px-2 py-0.5 text-[10px] text-muted-foreground">
+                              #{b.bookingReference}
+                            </span>
+                            {isCallPending && (
+                              <span className="rounded-full bg-amber-500/15 border border-amber-500/30 px-2.5 py-0.5 text-[10px] font-semibold text-amber-700 dark:text-amber-400 animate-pulse">
+                                🟡 En attente d'appel
+                              </span>
+                            )}
+                            {isConfirmed && (
+                              <span className="rounded-full bg-emerald-500/15 border border-emerald-500/30 px-2.5 py-0.5 text-[10px] font-semibold text-emerald-700 dark:text-emerald-400">
+                                🟢 Confirmé par téléphone
+                              </span>
+                            )}
+                            {isCancelled && (
+                              <span className="rounded-full bg-destructive/15 border border-destructive/30 px-2.5 py-0.5 text-[10px] font-semibold text-destructive">
+                                🔴 Injoignable / Rejeté
+                              </span>
+                            )}
+                            {isCompleted && (
+                              <span className="rounded-full bg-primary/15 border border-primary/30 px-2.5 py-0.5 text-[10px] font-semibold text-primary">
+                                🔵 Soin terminé
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Phone & Direct Call button */}
+                          <div className="flex flex-wrap items-center gap-3 text-xs">
+                            {b.customerPhone ? (
+                              <a
+                                href={`tel:${b.customerPhone}`}
+                                title="Appeler directement ce numéro"
+                                className="inline-flex items-center gap-2 rounded-full bg-emerald-600/15 hover:bg-emerald-600 text-emerald-800 dark:text-emerald-300 hover:text-white px-3.5 py-1.5 font-semibold transition border border-emerald-600/30 shadow-sm"
+                              >
+                                <PhoneCall size={14} />
+                                <span>{b.customerPhone}</span>
+                                <span className="text-[10px] uppercase underline tracking-wider font-normal">Appeler</span>
+                              </a>
+                            ) : (
+                              <span className="text-muted-foreground italic">Aucun téléphone</span>
+                            )}
+                            {b.customerEmail && <span className="text-muted-foreground">{b.customerEmail}</span>}
+                            <span className="text-muted-foreground">
+                              📅 {new Date(b.startsAt).toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' })} à{' '}
+                              <strong className="text-foreground">{new Date(b.startsAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}</strong>
+                            </span>
+                          </div>
+
+                          {/* Cart Services Breakdown */}
+                          <div className="mt-3 rounded-xl bg-secondary/40 p-3 border border-border/70">
+                            <div className="flex items-center justify-between pb-2 mb-2 border-b border-border/50 text-xs">
+                              <span className="font-medium text-foreground flex items-center gap-1.5">
+                                <ShoppingBag size={14} className="text-primary" /> Soins du panier ({servicesList.length}) :
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => setEditingCartBooking(b)}
+                                className="inline-flex items-center gap-1 text-[11px] font-semibold text-primary hover:underline"
+                              >
+                                <Edit3 size={12} /> Modifier le panier
+                              </button>
+                            </div>
+                            <div className="flex flex-wrap gap-1.5">
+                              {servicesList.map((item, idx) => (
+                                <span
+                                  key={idx}
+                                  className="rounded-lg bg-background border border-border/70 px-2.5 py-1 text-xs text-foreground font-medium flex items-center gap-1.5"
+                                >
+                                  <span>{item}</span>
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Price, Discount & Actions Panel */}
+                        <div className="flex flex-col gap-3 min-w-[280px] lg:border-s lg:border-border/70 lg:ps-5">
+                          {/* Financial Breakdown */}
+                          <div className="rounded-xl bg-background border border-border p-3.5 space-y-2">
+                            <div className="flex items-center justify-between text-xs text-muted-foreground">
+                              <span>Total brut :</span>
+                              <span className="font-medium tabular-nums">{formatMoney(grossTotal, currency)}</span>
+                            </div>
+
+                            {/* Discount (1-50%) Selector */}
+                            <div className="flex items-center justify-between gap-2 border-t border-border/50 pt-2 text-xs">
+                              <span className="flex items-center gap-1 text-muted-foreground">
+                                <Percent size={13} className="text-primary" /> Remise :
+                              </span>
+                              <div className="flex items-center gap-1.5">
+                                <select
+                                  value={discountPercent}
+                                  onChange={(e) => handleSetDiscount(b.id, Number(e.target.value))}
+                                  className="rounded-lg border border-input bg-card px-2 py-1 text-xs font-semibold text-primary focus-visible:outline-none"
+                                >
+                                  <option value={0}>0%</option>
+                                  <option value={5}>5%</option>
+                                  <option value={10}>10%</option>
+                                  <option value={15}>15%</option>
+                                  <option value={20}>20%</option>
+                                  <option value={25}>25%</option>
+                                  <option value={30}>30%</option>
+                                  <option value={40}>40%</option>
+                                  <option value={50}>50%</option>
+                                </select>
+                                {discountPercent > 0 && (
+                                  <span className="text-[11px] font-semibold text-destructive tabular-nums">
+                                    -{formatMoney(discountAmount, currency)}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+
+                            <div className="flex items-center justify-between border-t border-border pt-2 text-sm font-bold">
+                              <span>Total Net à Payer :</span>
+                              <span className="serif text-xl text-primary tabular-nums">{formatMoney(netTotal, currency)}</span>
+                            </div>
+                          </div>
+
+                          {/* Call & Status Action Buttons */}
+                          <div className="flex flex-wrap items-center gap-2">
+                            {isCallPending && (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={() => changeStatus(b, 'confirmed')}
+                                  className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-full bg-emerald-600 hover:bg-emerald-700 px-3.5 py-2 text-xs font-semibold text-white shadow-sm transition"
+                                >
+                                  <Check size={14} /> Confirmer appel
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => changeStatus(b, 'cancelled')}
+                                  className="inline-flex items-center justify-center gap-1.5 rounded-full border border-destructive/40 bg-destructive/5 hover:bg-destructive/15 px-3 py-2 text-xs font-medium text-destructive transition"
+                                  title="Marquer comme injoignable ou refusé"
+                                >
+                                  <PhoneOff size={14} /> Injoignable
+                                </button>
+                              </>
+                            )}
+
+                            {isConfirmed && (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={() => changeStatus(b, 'completed')}
+                                  className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-full bg-primary hover:opacity-90 px-3.5 py-2 text-xs font-semibold text-primary-foreground shadow-sm transition"
+                                >
+                                  <CheckCircle2 size={14} /> Encaissé / Terminé
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => changeStatus(b, 'cancelled')}
+                                  className="inline-flex items-center justify-center gap-1 rounded-full border border-border px-2.5 py-2 text-[11px] text-muted-foreground hover:text-destructive transition"
+                                >
+                                  Annuler
+                                </button>
+                              </>
+                            )}
+
+                            {(isCancelled || isCompleted) && (
+                              <button
+                                type="button"
+                                onClick={() => changeStatus(b, 'pending')}
+                                className="inline-flex items-center justify-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground transition"
+                              >
+                                <RefreshCw size={12} /> Remettre en attente
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* Edit Cart Modal for Manager */}
+          {editingCartBooking && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm animate-in fade-in duration-200">
+              <div className="w-full max-w-lg rounded-3xl border border-border bg-card p-6 shadow-2xl space-y-5 animate-in zoom-in-95 duration-200">
+                <div className="flex items-center justify-between border-b border-border pb-4">
+                  <div>
+                    <p className="mono text-[9px] tracking-[.18em] text-primary">ADMINISTRATION PANIER</p>
+                    <h3 className="serif text-2xl mt-0.5">Modifier le panier de {editingCartBooking.customerName}</h3>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setEditingCartBooking(null)}
+                    className="rounded-full p-2 text-muted-foreground hover:bg-secondary hover:text-foreground"
+                  >
+                    <X size={18} />
+                  </button>
+                </div>
+
+                {/* Current items */}
+                <div className="space-y-2">
+                  <p className="text-xs font-semibold text-foreground">Soins actuels dans la réservation :</p>
+                  <div className="max-h-48 overflow-y-auto space-y-2 pe-1">
+                    {getBookingServicesList(editingCartBooking).map((item, idx) => (
+                      <div key={idx} className="flex items-center justify-between gap-3 rounded-xl border border-border bg-secondary/30 px-3.5 py-2.5 text-xs">
+                        <span className="font-medium truncate">{item}</span>
+                        {idx >= (editingCartBooking.serviceName?.split(',').length || 1) && (
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveServiceFromCart(editingCartBooking.id, idx - (editingCartBooking.serviceName?.split(',').length || 1))}
+                            className="text-destructive hover:underline text-[11px]"
+                          >
+                            Retirer
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Add more services */}
+                <div className="space-y-2 border-t border-border pt-4">
+                  <label className="text-xs font-semibold text-foreground">Ajouter un soin supplémentaire (Séduit lors de l'appel) :</label>
+                  <div className="flex gap-2">
+                    <select
+                      value={serviceToAdd}
+                      onChange={(e) => setServiceToAdd(e.target.value)}
+                      className="flex-1 rounded-xl border border-input bg-background px-3 py-2 text-xs focus-visible:outline-none"
+                    >
+                      <option value="">Sélectionner parmi les 56 soins Rouis...</option>
+                      {allAvailableServices.map((s) => (
+                        <option key={s.id} value={s.name}>
+                          {s.name} ({s.category}) — {formatMoney(s.priceAmount, s.currency)}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      type="button"
+                      disabled={!serviceToAdd}
+                      onClick={() => handleAddServiceToCart(editingCartBooking.id, serviceToAdd)}
+                      className="inline-flex items-center gap-1 rounded-xl bg-primary px-4 py-2 text-xs font-medium text-primary-foreground disabled:opacity-50"
+                    >
+                      <Plus size={14} /> Ajouter
+                    </button>
+                  </div>
+                </div>
+
+                <div className="flex justify-end gap-2 border-t border-border pt-4">
+                  <button
+                    type="button"
+                    onClick={() => setEditingCartBooking(null)}
+                    className="rounded-full bg-primary px-6 py-2.5 text-xs font-medium text-primary-foreground shadow-sm"
+                  >
+                    Terminer & Enregistrer
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
 }
 function StatusAction({label,onClick,disabled}:{label:string;onClick:()=>void;disabled:boolean}) { return <button onClick={onClick} disabled={disabled} className="rounded-full bg-primary px-4 py-2 text-[10px] text-primary-foreground disabled:opacity-50" data-testid={`button-status-${label.toLowerCase().replaceAll(' ','-')}`}>{label}</button> }
 
@@ -1248,8 +2033,8 @@ export function ManagerPage() {
   const {t}=useLanguage();
   const [tab,setTab]=useState<'overview'|'staff'|'customers'|'services'|'audit'>('overview');
   const { user } = useUser();
-  const tabs=[['overview',t('Overview')],['staff',t('Staff')],['customers',t('Customers')],['services',t('Treatments')],['audit',t('Audit logs')]] as const;
-  return <><Meta title={tab==='overview'?"Today's schedule":tabs.find(item=>item[0]===tab)?.[1]||'Staff desk'} description="Staff schedule and appointment operations."/><main className="page-enter mx-auto max-w-[1320px] px-5 py-12 md:px-10 md:py-16"><div className="flex flex-wrap items-end justify-between gap-4"><div><p className="mono text-[10px] tracking-[.2em] text-primary">{t('Staff desk')}</p><h1 className="serif mt-3 text-5xl md:text-6xl">{tab==='overview'?t('Today, at a glance.'):tabs.find(item=>item[0]===tab)?.[1]}</h1><p className="mt-3 text-sm text-muted-foreground">{t('Manage the schedule, people, treatment catalog, and operational history.')}</p></div><HealthPip/></div><div className="mt-8 flex flex-wrap gap-2 border-b border-border pb-3">{tabs.map(([value,label])=><button key={value} type="button" onClick={()=>setTab(value)} className={`rounded-full px-4 py-2.5 text-xs ${tab===value?'bg-primary text-primary-foreground':'border border-border bg-card hover:bg-secondary'}`} data-testid={`tab-manager-${value}`}>{label}</button>)}</div>{tab==='overview'&&<DashboardInner/>}{tab==='staff'&&<StaffManagementPanel/>}{tab==='customers'&&<CustomerManagementPanel/>}{tab==='services'&&<ServicesManagementPanel/>}{tab==='audit'&&<AuditPage businessOnly={user?.publicMetadata?.role !== 'admin'}/>}</main></>;
+  const tabs=[['overview',t('Paniers & Réservations')],['staff',t('Staff')],['customers',t('Customers')],['services',t('Treatments')],['audit',t('Audit logs')]] as const;
+  return <><Meta title={tab==='overview'?"Paniers & Réservations":tabs.find(item=>item[0]===tab)?.[1]||'Staff desk'} description="Gestion des paniers, appels clients et réservations."/><main className="page-enter mx-auto max-w-[1320px] px-5 py-12 md:px-10 md:py-16"><div className="flex flex-wrap items-end justify-between gap-4"><div><p className="mono text-[10px] tracking-[.2em] text-primary">{t('ADMINISTRATION SALON')}</p><h1 className="serif mt-3 text-5xl md:text-6xl">{tab==='overview'?t('Paniers & Réservations'):tabs.find(item=>item[0]===tab)?.[1]}</h1><p className="mt-3 text-sm text-muted-foreground">{t('Gestion des appels de confirmation, remises personnalisées (1-50%) et modifications de paniers.')}</p></div><HealthPip/></div><div className="mt-8 flex flex-wrap gap-2 border-b border-border pb-3">{tabs.map(([value,label])=><button key={value} type="button" onClick={()=>setTab(value)} className={`rounded-full px-4 py-2.5 text-xs ${tab===value?'bg-primary text-primary-foreground font-medium':'border border-border bg-card hover:bg-secondary'}`} data-testid={`tab-manager-${value}`}>{label}</button>)}</div>{tab==='overview'&&<DashboardInner/>}{tab==='staff'&&<StaffManagementPanel/>}{tab==='customers'&&<CustomerManagementPanel/>}{tab==='services'&&<ServicesManagementPanel/>}{tab==='audit'&&<AuditPage businessOnly={user?.publicMetadata?.role !== 'admin'}/>}</main></>;
 }
 
 export function AuditPage({ businessOnly = false }: { businessOnly?: boolean }) {
