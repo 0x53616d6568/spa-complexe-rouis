@@ -1040,7 +1040,13 @@ function DashboardInner() {
   };
 
   const calculateBookingTotal = (b: ManagerBooking) => {
-    const basePrice = b.priceAmount || 0;
+    // Look up base service price by name since ManagerBooking doesn't carry price
+    const baseServiceNames = b.serviceName ? b.serviceName.split(',').map(s => s.trim()) : [];
+    let basePrice = 0;
+    baseServiceNames.forEach(name => {
+      const found = allAvailableServices.find(s => s.name.toLowerCase() === name.toLowerCase());
+      if (found) basePrice += found.priceAmount;
+    });
     const addedNames = extraItems[b.id] || [];
     let addedPrice = 0;
     addedNames.forEach(name => {
@@ -1051,7 +1057,7 @@ function DashboardInner() {
     const discountPercent = discounts[b.id] || 0;
     const discountAmount = Math.round((grossTotal * discountPercent) / 100);
     const netTotal = Math.max(0, grossTotal - discountAmount);
-    return { grossTotal, discountPercent, discountAmount, netTotal, currency: b.currency || 'TND' };
+    return { grossTotal, discountPercent, discountAmount, netTotal, currency: 'TND' };
   };
 
   return (
