@@ -16,6 +16,13 @@ const basePath = process.env.BASE_PATH ?? '/';
 export default defineConfig({
   base: basePath,
   envDir: path.resolve(import.meta.dirname, '..'),
+  define: {
+    'import.meta.env.VITE_CLERK_PUBLISHABLE_KEY': JSON.stringify(
+      process.env.VITE_CLERK_PUBLISHABLE_KEY ||
+      process.env.CLERK_PUBLISHABLE_KEY ||
+      'pk_test_cGxlYXNpbmctYnVubnktOTkyMC5jbGVyay5hY2NvdW50cy5kZXYk'
+    ),
+  },
   plugins: [
     react(),
     tailwindcss({ optimize: false }),
