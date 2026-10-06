@@ -8,6 +8,7 @@ const { logger } = await import("./lib/logger");
 const { startNotificationWorker } = await import(
   "./modules/notifications/email-worker"
 );
+const { startKeepAlivePinger } = await import("./lib/pinger");
 
 const rawPort = process.env["PORT"];
 
@@ -24,6 +25,7 @@ if (Number.isNaN(port) || port <= 0) {
 }
 
 startNotificationWorker();
+startKeepAlivePinger();
 
 app.listen(port, (err) => {
   if (err) {
