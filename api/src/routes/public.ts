@@ -35,7 +35,6 @@ const guestCancelRateLimit = createRateLimiter({
   windowMs: 15 * 60_000,
   message: "Too many cancellation attempts. Please wait and try again.",
 });
-
 router.get("/spa", async (request, response) => {
   try {
     response.json(await getPublicSpaProfile());

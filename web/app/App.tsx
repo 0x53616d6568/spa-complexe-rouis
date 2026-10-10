@@ -22,7 +22,7 @@ import {
   AccountPage, AuditPage, BookingPage, ConfirmationPage, GuestBookingManagementPage, HomePage, ManagerPage, PoliciesPage,
   ServiceDetailPage, ServicesPage, SiteShell,
 } from '@/components/SpaPages';
-import { ArrowRight, Flower2, ShieldCheck } from 'lucide-react';
+import { ArrowRight, ShieldCheck } from 'lucide-react';
 
 const queryClient = new QueryClient();
 
@@ -54,7 +54,7 @@ const clerkAppearance = {
   options: {
     logoPlacement: 'inside' as const,
     logoLinkUrl: basePath || '/',
-    logoImageUrl: `${window.location.origin}${basePath}/logo.svg`,
+    logoImageUrl: `${window.location.origin}${basePath}/logo.png`,
   },
   variables: {
     colorPrimary: '#214b40',
@@ -65,7 +65,7 @@ const clerkAppearance = {
     colorInput: '#f6f3e9',
     colorInputForeground: '#273d36',
     colorNeutral: '#d7d1c4',
-    fontFamily: 'DM Sans, sans-serif',
+    fontFamily: 'Manrope, sans-serif',
     borderRadius: '1rem',
   },
   elements: {
@@ -126,11 +126,43 @@ function RoutedErrorBoundary({ children }: { children: ReactNode }) {
   return <ErrorBoundary resetKey={location}>{children}</ErrorBoundary>;
 }
 
+function RouteRobots() {
+  const [location] = useLocation();
+  useEffect(() => {
+    const pathname = location.split(/[?#]/, 1)[0].replace(/\/+$/, '') || '/';
+    // Public detail pages opt in through their service data; unknown slugs and
+    // placeholder policy pages remain noindex until their content is verified.
+    const indexableRoute = pathname === '/' || pathname === '/services';
+    let robots = document.querySelector<HTMLMetaElement>('meta[name="robots"]');
+    if (!robots) {
+      robots = document.createElement('meta');
+      robots.name = 'robots';
+      document.head.appendChild(robots);
+    }
+    robots.content = indexableRoute ? 'index, follow' : 'noindex, follow';
+    let canonical = document.querySelector<HTMLLinkElement>('link[rel="canonical"]');
+    if (!canonical) {
+      canonical = document.createElement('link');
+      canonical.rel = 'canonical';
+      document.head.appendChild(canonical);
+    }
+    canonical.href = `${window.location.origin}${pathname}`;
+    let ogUrl = document.querySelector<HTMLMetaElement>('meta[property="og:url"]');
+    if (!ogUrl) {
+      ogUrl = document.createElement('meta');
+      ogUrl.setAttribute('property', 'og:url');
+      document.head.appendChild(ogUrl);
+    }
+    ogUrl.content = `${window.location.origin}${pathname}`;
+  }, [location]);
+  return null;
+}
+
 function BrandedAuthLayout({ children, type }: { children: ReactNode; type: 'sign-in' | 'sign-up' }) {
   return <main className="grid min-h-[100dvh] bg-background lg:grid-cols-[.8fr_1.2fr]">
     <section className="relative hidden overflow-hidden bg-primary px-12 py-12 text-primary-foreground lg:flex lg:flex-col lg:justify-between">
       <Link href="/" className="flex items-center gap-3 text-primary-foreground">
-        <span className="grid h-11 w-11 place-items-center rounded-2xl bg-primary-foreground/10"><Flower2 size={22}/></span>
+        <img src="/logo.png" alt="" width="48" height="48" className="h-11 w-11 shrink-0 rounded-xl object-cover mix-blend-screen" />
         <span className="serif text-3xl">Complexe Rouis</span>
       </Link>
       <div className="relative z-10 pb-10"><p className="mono text-[9px] tracking-[.2em] text-primary-foreground/60">SPA WORKSPACE</p><p className="serif mt-4 max-w-md text-6xl leading-[.96]">A little space to come back to yourself.</p><p className="mt-5 max-w-sm text-sm leading-6 text-primary-foreground/65">Sign in with your spa account. Your account role determines which workspace you can access.</p></div>
@@ -138,7 +170,7 @@ function BrandedAuthLayout({ children, type }: { children: ReactNode; type: 'sig
       <p className="mono text-[9px] tracking-[.18em] text-primary-foreground/45">DEMO SETUP · BUSINESS DETAILS ARE PLACEHOLDERS</p>
     </section>
     <section className="flex min-h-[100dvh] flex-col items-center justify-center px-5 py-8">
-      <div className="mb-7 flex w-full max-w-[440px] items-center justify-between lg:hidden"><Link href="/" className="flex items-center gap-2"><Flower2 className="text-primary" size={22}/><span className="serif text-2xl">Complexe Rouis</span></Link><Link href="/" className="text-xs text-muted-foreground">Back home</Link></div>
+      <div className="mb-7 flex w-full max-w-[440px] items-center justify-between lg:hidden"><Link href="/" className="flex items-center gap-2"><img src="/logo.png" alt="" width="40" height="40" className="h-9 w-9 shrink-0 rounded-lg object-cover mix-blend-screen"/><span className="serif text-2xl">Complexe Rouis</span></Link><Link href="/" className="text-xs text-muted-foreground">Back home</Link></div>
       <div className="w-full max-w-[440px]">{children}</div>
       <p className="mt-7 flex items-center gap-2 text-[10px] text-muted-foreground"><ShieldCheck size={13}/> {type === 'sign-in' ? 'Your account, securely managed.' : 'A little pause starts here.'}</p>
     </section>
@@ -222,6 +254,7 @@ function ProtectedAccount() {
 
 function Router() {
   return <RoutedErrorBoundary>
+    <RouteRobots />
     <Switch>
       <Route path="/" component={() => <SiteShell><HomePage/></SiteShell>}/>
       <Route path="/services" component={() => <SiteShell><ServicesPage/></SiteShell>}/>

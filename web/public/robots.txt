@@ -1,2 +1,9 @@
 User-agent: *
 Allow: /
+Sitemap: https://spa-complexe-rouis.netlify.app/sitemap.xml
+
+User-agent: OAI-SearchBot
+Allow: /
+
+User-agent: GPTBot
+Disallow: /

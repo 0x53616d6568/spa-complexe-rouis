@@ -3,7 +3,7 @@ import dotenv from "dotenv";
 
 dotenv.config({ path: path.resolve(import.meta.dirname, "../../../.env") });
 
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import {
   db,
   pool,
@@ -610,11 +610,11 @@ async function seedRouis() {
       id: demoSettingsId,
       name: "Complexe Rouis d'esthétique",
       tagline: "Votre institut de beauté d'exception.",
-      address: "Complexe Rouis",
-      city: "Tunis",
+      address: "Av. de l'environnement · PHQM+H3",
+      city: "M'saken",
       region: "Tunisie",
       contactEmail: "contact@complexe-rouis.tn",
-      contactPhone: "+216 00 000 000",
+      contactPhone: "+216 55 884 366",
       timezone: "Africa/Tunis",
       currency: "TND",
       cancellationPolicy: "Annulation gratuite jusqu'à 2 heures avant votre rendez-vous.",
@@ -627,6 +627,11 @@ async function seedRouis() {
       set: {
         name: "Complexe Rouis d'esthétique",
         tagline: "Votre institut de beauté d'exception.",
+        address: "Av. de l'environnement · PHQM+H3",
+        city: "M'saken",
+        region: "Tunisie",
+        contactEmail: "contact@complexe-rouis.tn",
+        contactPhone: "+216 55 884 366",
         timezone: "Africa/Tunis",
         currency: "TND",
         minimumNoticeHours: 1,
@@ -744,7 +749,7 @@ async function seedRouis() {
       .onConflictDoNothing();
   }
 
-  // 5. Working hours (every day 09:00 - 19:00)
+  // 5. Confirmed public working hours (every day 09:00 - 19:00)
   for (let dayOfWeek = 0; dayOfWeek < 7; dayOfWeek += 1) {
     await db
       .insert(workingHoursTable)
@@ -754,7 +759,11 @@ async function seedRouis() {
         closeTime: "19:00",
         isClosed: false,
       })
-      .onConflictDoNothing();
+      .onConflictDoUpdate({
+        target: workingHoursTable.dayOfWeek,
+        set: { openTime: "09:00", closeTime: "19:00", isClosed: false },
+        setWhere: sql`${workingHoursTable.dayOfWeek} = ${dayOfWeek}`,
+      });
   }
 
   logger.info("Base de données synchronisée avec succès avec tous les services Rouis !");

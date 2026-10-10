@@ -1,11 +1,37 @@
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 
 export type Language = 'en' | 'fr' | 'ar';
 const LANGUAGE_KEY = 'stillroom-language';
 const DEFAULT_LANGUAGE: Language = 'fr';
 
-const translations: Record<Exclude<Language, 'en'>, Record<string, string>> = {
+const translations: Record<Language, Record<string, string>> = {
+  en: {
+    'Soins du corps': 'Body treatments', Ongles: 'Nails', Cheveux: 'Hair', 'Cils & Sourcils': 'Lashes & brows',
+    'Soins du visage': 'Facial treatments', Maquillage: 'Makeup', 'Coiffure & Chignon': 'Hair styling & updos',
+    'Épilation': 'Hair removal', Amincissement: 'Slimming',
+  },
   fr: {
+    "Beauty, care,": "Beauté et soins,",
+    "close to you.": "près de chez vous.",
+    "A bright space, a caring team, and beauty, hair, and wellness treatments. Explore the menu and choose what feels right for you.": "Un lieu lumineux, une équipe attentionnée et des soins de beauté, coiffure et bien-être. Découvrez nos prestations et choisissez ce qui vous convient.",
+    "Av. de l’environnement, M’saken": "Av. de l’environnement, M’saken",
+    "Every day": "Tous les jours",
+    "Stone staircase and glass railing in the bright Complexe Rouis interior": "Escalier en pierre et garde-corps en verre dans le hall lumineux du Complexe Rouis",
+    "Golden chandelier in the Complexe Rouis reception area": "Lustre doré dans l’espace d’accueil du Complexe Rouis",
+    "Beauty & wellness": "Beauté et bien-être",
+    "CALLS & CARTS": "APPELS ET PANIERS",
+    "Awaiting call": "En attente d’appel",
+    "Call": "Appeler",
+    "Treatments in cart": "Soins du panier",
+    "Edit cart": "Modifier le panier",
+    "Gross total:": "Total brut :",
+    "Discount:": "Remise :",
+    "Confirm call": "Confirmer l’appel",
+    "Return to pending": "Remettre en attente",
+    "CART MANAGEMENT": "GESTION DU PANIER",
+    "Done & save": "Terminer et enregistrer",
+    'Find us on Google Maps':'Nous trouver sur Google Maps', 'Soins du corps':'Soins du corps',
+    'Feel good':'Sentez-vous bien', 'in your':'dans votre', 'own skin.':'peau.', 'Explore services':'Découvrir les prestations', 'A considered beauty and wellness experience · Complexe Rouis':'Beauté et bien-être chez Complexe Rouis', 'COMPLEXE ROUIS · BEAUTY & WELLNESS':'COMPLEXE ROUIS · BEAUTÉ & BIEN-ÊTRE', 'Discover beauty, hair, and wellness services at Complexe Rouis. Browse clear service details and book a time that works for you.':'Découvrez les prestations de beauté, coiffure et bien-être de Complexe Rouis. Consultez les détails et choisissez un horaire qui vous convient.', 'Professional care, with a personal touch':'Des soins professionnels, une attention personnelle', 'YOUR VISIT, YOUR WAY':'VOTRE VISITE, À VOTRE FAÇON', 'Thoughtful care, from booking to goodbye.':'Une attention soignée, de la réservation à votre départ.', 'CARE':'SOIN', 'DAILY OPERATIONS':'GESTION QUOTIDIENNE', 'Bookings and follow-up':'Rendez-vous et suivi', 'Review requests, confirm visits, and keep the schedule moving.':'Consultez les demandes, confirmez les visites et gardez le planning à jour.', 'Booking date':'Date des rendez-vous', 'BOOKINGS ON SELECTED DATE':'RENDEZ-VOUS À CETTE DATE', 'NEEDS CONFIRMATION':'À CONFIRMER', 'CONFIRMED':'CONFIRMÉS', 'COMPLETED / CHECKED IN':'TERMINÉS / ARRIVÉS',
     Home:'Accueil', Treatments:'Soins', 'Visit information':'Informations pratiques', Staff:'\u00c9quipe', 'Sign out':'D\u00e9connexion', 'Sign in':'Connexion', 'Find a time':'Choisir un horaire', 'Book an appointment':'Prendre rendez-vous', 'Open menu':'Ouvrir le menu', 'Close menu':'Fermer le menu', 'Switch to light mode':'Passer au th\u00e8me clair', 'Switch to dark mode':'Passer au th\u00e8me sombre', 'Demo setup':'D\u00e9mo', 'Welcome back':'Ravi de vous revoir', 'Sign in for your Stillroom account':'Connectez-vous \u00e0 votre compte', 'Make room for you':'Faites-vous une place', 'Create your Stillroom account':'Cr\u00e9ez votre compte',
     'Ongles':'Ongles', 'Cheveux':'Cheveux', 'Cils & Sourcils':'Cils & Sourcils', 'Soins du visage':'Soins du visage', 'Maquillage':'Maquillage', 'Coiffure & Chignon':'Coiffure & Chignon', '\u00c9pilation':'\u00c9pilation', 'Massage':'Massage', 'Amincissement':'Amincissement',
     'From':'\u00c0 partir de', 'per session':'par s\u00e9ance', 'Variants':'Variantes', 'See details':'Voir les d\u00e9tails',
@@ -18,6 +44,30 @@ const translations: Record<Exclude<Language, 'en'>, Record<string, string>> = {
     Language:'Langue', French:'Fran\u00e7ais', Arabic:'Arabe', Connecting:'Connexion en cours', 'Service status unavailable':'\u00c9tat du service indisponible', Online:'En ligne', 'Today\u2019s schedule':'Planning du jour', 'Today, at a glance.':'La journ\u00e9e en un coup d\u2019\u0153il.', 'Staff desk':'Espace \u00e9quipe', 'Manage the schedule, people, treatment catalog, and operational history.':'G\u00e9rez le planning, l\u2019\u00e9quipe, les soins et l\u2019historique des op\u00e9rations.', 'CUSTOMER RECORDS':'DOSSIERS CLIENTS', NAME:'NOM', EMAIL:'E-MAIL', PHONE:'T\u00c9L\u00c9PHONE', ACCOUNT:'COMPTE', ACTION:'ACTION', Edit:'Modifier', 'Edit customer':'Modifier le client', Cancel:'Annuler', Save:'Enregistrer', 'Display name':'Nom affich\u00e9', 'Account email':'E-mail du compte', 'New password (optional)':'Nouveau mot de passe (facultatif)', 'Temporary password':'Mot de passe temporaire', 'Short bio':'Courte pr\u00e9sentation', 'Available for bookings':'Disponible pour les rendez-vous', 'Disable sign-in account':'D\u00e9sactiver le compte', 'Save account changes':'Enregistrer les modifications', 'No sign-in account':'Aucun compte de connexion', Bookable:'R\u00e9servable', 'Not bookable':'Non r\u00e9servable', Active:'Actif', Disabled:'D\u00e9sactiv\u00e9', 'STAFF ACCOUNTS':'COMPTES \u00c9QUIPE', 'Loading staff accounts':'Chargement des comptes \u00e9quipe', 'Loading customers':'Chargement des clients', 'Loading events':'Chargement des \u00e9v\u00e9nements', 'Could not load audit events.':'Impossible de charger le journal.', 'We couldn\u2019t reach the schedule.':'Impossible de joindre le planning.', 'Please try again in a moment.':'Veuillez r\u00e9essayer dans un instant.', 'Try again':'R\u00e9essayer', 'Gathering the details':'Chargement des informations', 'Delete treatment':'Supprimer le soin', 'Edit treatment':'Modifier le soin', 'Treatment name':'Nom du soin', Category:'Cat\u00e9gorie', Description:'Description', Featured:'\u00c0 la une', 'All statuses':'Tous les statuts', 'Search this list':'Rechercher dans la liste', 'Add staff':'Ajouter un membre', 'Sign-in email':'E-mail de connexion', 'Cancel password change':'Annuler le changement du mot de passe', 'Change password':'Changer le mot de passe', 'New password (15+ characters)':'Nouveau mot de passe (15 caract\u00e8res ou plus)', 'Only needed for a new account (15+ characters)':'Requis uniquement pour un nouveau compte (15 caract\u00e8res ou plus)', 'User / Customer':'Utilisateur / Client', 'Manager / Staff':'Responsable / \u00c9quipe', 'Admin / Owner':'Admin / Propri\u00e9taire', 'EDIT STAFF ACCOUNT':'MODIFIER LE COMPTE \u00c9QUIPE', 'CREATE STAFF ACCOUNT':'CR\u00c9ER UN COMPTE \u00c9QUIPE', 'Full platform access, including manager accounts, roles, permissions, settings, and audit logs.':'Acc\u00e8s complet \u00e0 la plateforme, aux comptes responsables, aux r\u00f4les, autorisations, param\u00e8tres et journaux.', 'Day-to-day bookings, services, staff schedules, customers, and reports, with limited settings and business audit access. Cannot manage manager/admin accounts or change roles.':'Gestion des rendez-vous, soins, plannings, clients et rapports, avec acc\u00e8s limit\u00e9 aux param\u00e8tres et journaux. Ne peut pas g\u00e9rer les comptes responsables ou administrateurs, ni modifier les r\u00f4les.', 'Public services, own profile and customer record, own bookings, and account deletion requests.':'Soins publics, profil, dossier client et rendez-vous personnels, et demandes de suppression du compte.', 'Choose what this account can access. Changing the role loads its default permissions.':'Choisissez les acc\u00e8s de ce compte. Le changement de r\u00f4le charge les autorisations par d\u00e9faut.', 'EDIT TREATMENT':'MODIFIER LE SOIN', 'NEW TREATMENT':'NOUVEAU SOIN', 'Short description':'Description courte', 'Full description':'Description compl\u00e8te', 'Treatment image URL':'URL de l\u2019image du soin', 'Feature on home page':'Mettre en avant sur la page d\u2019accueil', 'STAFF DESK':'ESPACE \u00c9QUIPE', 'Request could not be completed.':'La demande n\u2019a pas abouti.'
   },
   ar: {
+    'Explore services': 'استكشف الخدمات',
+
+    "COMPLEXE ROUIS · BEAUTY & WELLNESS": "مركز رويس · الجمال والعناية",
+    "Beauty, care,": "الجمال والعناية،",
+    "close to you.": "بالقرب منك.",
+    "A bright space, a caring team, and beauty, hair, and wellness treatments. Explore the menu and choose what feels right for you.": "مكان مضيء وفريق يهتم بك وخدمات للجمال والشعر والعافية. اكتشف الخدمات واختر ما يناسبك.",
+    "Av. de l’environnement, M’saken": "شارع البيئة، مساكن",
+    "Every day": "كل يوم",
+    "Stone staircase and glass railing in the bright Complexe Rouis interior": "درج حجري ودرابزين زجاجي في مدخل مركز رويس المضيء",
+    "Golden chandelier in the Complexe Rouis reception area": "ثريا ذهبية في منطقة استقبال مركز رويس",
+    "Beauty & wellness": "الجمال والعافية",
+    "CALLS & CARTS": "المكالمات والسلال",
+    "Awaiting call": "بانتظار الاتصال",
+    "Call": "اتصل",
+    "Treatments in cart": "الخدمات في السلة",
+    "Edit cart": "تعديل السلة",
+    "Gross total:": "الإجمالي قبل الخصم:",
+    "Discount:": "الخصم:",
+    "Confirm call": "تأكيد الاتصال",
+    "Return to pending": "إعادة إلى الانتظار",
+    "CART MANAGEMENT": "إدارة السلة",
+    "Done & save": "إنهاء وحفظ",
+    "Find us on Google Maps": "\u0639\u0644\u0649 \u062e\u0631\u0627\u0626\u0637 Google",
+    "Soins du corps": "\u0639\u0644\u0627\u062c\u0627\u062a \u0627\u0644\u062c\u0633\u0645",
     "Home": "\u0627\u0644\u0631\u0626\u064a\u0633\u064a\u0629",
     "Treatments": "\u0627\u0644\u0639\u0644\u0627\u062c\u0627\u062a",
     "Visit information": "\u0645\u0639\u0644\u0648\u0645\u0627\u062a \u0627\u0644\u0632\u064a\u0627\u0631\u0629",
@@ -172,52 +222,220 @@ const translations: Record<Exclude<Language, 'en'>, Record<string, string>> = {
 };
 
 Object.assign(translations.fr, {
-  Cart: 'Panier',
-  'Choose treatments, add them to your cart, and reserve them together.': 'Choisissez plusieurs soins, ajoutez-les au panier et reservez-les ensemble.',
-  'Treatment time': 'Duree des soins',
-  'Includes the required space between treatments.': 'Inclut le temps necessaire entre les soins.',
-  'That treatment is already in your cart.': 'Ce soin est deja dans votre panier.',
-  'Your cart can contain up to eight treatments.': 'Votre panier peut contenir jusqu a huit soins.',
-  'Add at least one treatment to your cart.': 'Ajoutez au moins un soin a votre panier.',
-  'Add to cart': 'Ajouter au panier', 'Your cart': 'Votre panier', Remove: 'Retirer',
-  'Your cart is empty. Add one or more treatments to continue.': 'Votre panier est vide. Ajoutez un ou plusieurs soins pour continuer.',
-  'No available times for this cart on this date. Choose another day.': 'Aucun horaire ne convient a ce panier. Choisissez un autre jour.',
+  Cart: 'Panier',  'Treatment time': 'Duree des soins',
+  'Includes the required space between treatments.': 'Inclut le temps necessaire entre les soins.',  'Add to cart': 'Ajouter au panier', 'Your cart': 'Votre panier', Remove: 'Retirer',  'No available times for this cart on this date. Choose another day.': 'Aucun horaire ne convient a ce panier. Choisissez un autre jour.',
   'Current policy details are demo/setup placeholders.': 'Les conditions affichees sont des exemples de demonstration.',
   'Reserve cart': 'Reserver le panier', 'Reservation summary': 'Resume de la reservation',
   'Total duration': 'Duree totale', Total: 'Total', Date: 'Date', Time: 'Heure',
-  'Cancellation policy is a demo/setup placeholder.': 'Les conditions d annulation sont un exemple de demonstration.',
-  'Retry loading treatments': 'Reessayer de charger les soins',
-  'Cookie consent': 'Choix des cookies', 'Your privacy matters': 'Votre vie privee compte',
+  'Cancellation policy is a demo/setup placeholder.': 'Les conditions d annulation sont un exemple de demonstration.',  'Cookie consent': 'Choix des cookies', 'Your privacy matters': 'Votre vie privee compte',
   'We use essential cookies and browser storage for sign-in, your cart, language, and booking flow. We do not currently use analytics or advertising cookies.': 'Nous utilisons des cookies essentiels et le stockage du navigateur pour la connexion, le panier, la langue et les reservations. Aucun cookie analytique ou publicitaire n est actuellement utilise.',
   'Accept all': 'Tout accepter', 'Reject optional': 'Refuser les cookies facultatifs', 'Cookie details': 'Details des cookies', 'Hide details': 'Masquer les details',
   'Essential storage': 'Stockage essentiel', 'Required for sign-in, cart, language, and booking features; always active.': 'Necessaire a la connexion, au panier, a la langue et aux reservations ; toujours actif.',
   'Optional tracking': 'Suivi facultatif', 'No analytics or advertising trackers are currently enabled.': 'Aucun outil de suivi analytique ou publicitaire n est active.',
   'Read our privacy information': 'Lire les informations sur la confidentialite', 'Cookie settings': 'Reglages des cookies',
+  Daily: 'Tous les jours', Explore: 'Découvrir', 'Find us': 'Nous trouver', Directions: 'Itinéraire',
+  'Beauty, hair & wellness in M\'saken.': 'Beauté, coiffure et bien-être à M\'saken.',
+  'We couldn\'t reach the schedule.': 'Impossible de joindre le planning.',
+  'Added to cart': 'Ajouté au panier', Added: 'Ajouté', Add: 'Ajouter', Book: 'Réserver',
+  'Browse the current treatment menu and appointment details.': 'Découvrez les soins proposés et leurs détails.',
+  'Filter treatments by category': 'Filtrer les soins par catégorie',
+  'Scroll to more treatment categories': 'Faire défiler les catégories de soins',
+  'Scroll to explore': 'Faites défiler pour explorer',
+  'The menu is taking shape.': 'La carte se prépare.',
+  'No treatments are available for this selection right now.': 'Aucun soin n’est disponible dans cette catégorie pour le moment.',
+  'That treatment is already in your cart.': 'Ce soin est déjà dans votre panier.',
+  'Your cart can contain up to eight treatments.': 'Votre panier peut contenir jusqu’à huit soins.',
+  'Add at least one treatment to your cart.': 'Ajoutez au moins un soin à votre panier.',
+  'Choose treatments, add them to your cart, and reserve them together.': 'Choisissez plusieurs soins, ajoutez-les au panier et réservez-les ensemble.',
+  'Retry loading treatments': 'Réessayer de charger les soins',
+  'Your cart is empty. Add one or more treatments to continue.': 'Votre panier est vide. Ajoutez un ou plusieurs soins pour continuer.',
+  'Previous month': 'Mois précédent', 'Next month': 'Mois suivant',
+  'Availability could not be loaded.': 'Impossible de charger les disponibilités.',
+  'Checking and booking…': 'Vérification et réservation…',
+  'Bookings & reservations': 'Rendez-vous et réservations',
+  'SALON ADMINISTRATION': 'ADMINISTRATION DU SALON',
+  'Manage confirmation calls, discounts (1-50%), and cart changes.': 'Gérez les appels de confirmation, les remises (1 à 50 %) et les modifications du panier.',
+  'treatment(s) selected': 'soin(s) sélectionné(s)', 'Your cart is empty': 'Votre panier est vide',
+  'Browse treatments and add them to build your appointment.': 'Parcourez nos soins et ajoutez ceux de votre choix à votre rendez-vous.',
+  'Estimated treatment time': 'Durée totale estimée', 'Confirm and choose a time': 'Confirmer et choisir un horaire',
+  'Clear cart': 'Vider le panier', 'Pay at the spa': 'Paiement au salon', 'Book now': 'Réserver maintenant',
+  'Plan your visit': 'Préparer votre visite', 'The details that make a visit easy.': 'Les informations pratiques pour votre visite.',
+  'Find us in M\'saken, open every day from 9:00 AM to 7:00 PM.': 'Retrouvez-nous à M\'saken, ouverts tous les jours de 9 h à 19 h.',
+  'Location & contact': 'Adresse et contact', 'Opening hours': 'Horaires d’ouverture',
+  'Open in Google Maps': 'Ouvrir dans Google Maps', 'Hours may vary on public holidays.': 'Les horaires peuvent varier les jours fériés.',
+  'Information you provide': 'Informations que vous fournissez', 'Cookies & service providers': 'Cookies et prestataires de services',
+  'Your choices': 'Vos choix', 'Policy updates': 'Mises à jour de confidentialité',
+  'BEFORE YOU ARRIVE': 'AVANT VOTRE VISITE',
+  'Follow on Instagram': 'Suivre sur Instagram', 'Follow on Facebook': 'Suivre sur Facebook',
+  'CONFIRMED BY PHONE': 'CONFIRMÉS PAR TÉLÉPHONE', 'COMPLETED / PAID': 'TERMINÉS / RÉGLÉS',
+  Filter: 'Filtrer', 'Awaiting confirmation': 'À confirmer', Confirmed: 'Confirmé', Completed: 'Terminé',
+  'Unreachable / Rejected': 'Injoignable / refusé', at: 'à',
 });
 
 Object.assign(translations.ar, {
-  Cart: '\u0627\u0644\u0633\u0644\u0629',
-  'Choose treatments, add them to your cart, and reserve them together.': '\u0627\u062e\u062a\u0631 \u0639\u0644\u0627\u062c\u0627\u062a \u0645\u062a\u0639\u062f\u062f\u0629\u060c \u0623\u0636\u0641\u0647\u0627 \u0625\u0644\u0649 \u0633\u0644\u062a\u0643\u060c \u0648\u0627\u062d\u062c\u0632\u0647\u0627 \u0645\u0639\u064b\u0627.',
-  'Treatment time': '\u0645\u062f\u0629 \u0627\u0644\u0639\u0644\u0627\u062c\u0627\u062a',
-  'Includes the required space between treatments.': '\u064a\u0634\u0645\u0644 \u0627\u0644\u0648\u0642\u062a \u0627\u0644\u0644\u0627\u0632\u0645 \u0628\u064a\u0646 \u0627\u0644\u0639\u0644\u0627\u062c\u0627\u062a.',
-  'That treatment is already in your cart.': '\u0647\u0630\u0627 \u0627\u0644\u0639\u0644\u0627\u062c \u0645\u0648\u062c\u0648\u062f \u0641\u0639\u0644\u064b\u0627 \u0641\u064a \u0633\u0644\u062a\u0643.',
-  'Your cart can contain up to eight treatments.': '\u064a\u0645\u0643\u0646 \u0623\u0646 \u062a\u062d\u062a\u0648\u064a \u0633\u0644\u062a\u0643 \u0639\u0644\u0649 \u062b\u0645\u0627\u0646\u064a\u0629 \u0639\u0644\u0627\u062c\u0627\u062a \u0643\u062d\u062f \u0623\u0642\u0635\u0649.',
-  'Add at least one treatment to your cart.': '\u0623\u0636\u0641 \u0639\u0644\u0627\u062c\u064b\u0627 \u0648\u0627\u062d\u062f\u064b\u0627 \u0639\u0644\u0649 \u0627\u0644\u0623\u0642\u0644 \u0625\u0644\u0649 \u0633\u0644\u062a\u0643.',
-  'Add to cart': '\u0623\u0636\u0641 \u0625\u0644\u0649 \u0627\u0644\u0633\u0644\u0629', 'Your cart': '\u0633\u0644\u062a\u0643', Remove: '\u0625\u0632\u0627\u0644\u0629',
-  'Your cart is empty. Add one or more treatments to continue.': '\u0633\u0644\u062a\u0643 \u0641\u0627\u0631\u063a\u0629. \u0623\u0636\u0641 \u0639\u0644\u0627\u062c\u064b\u0627 \u0648\u0627\u062d\u062f\u064b\u0627 \u0623\u0648 \u0623\u0643\u062b\u0631 \u0644\u0644\u0645\u062a\u0627\u0628\u0639\u0629.',
-  'Availability could not be loaded.': '\u062a\u0639\u0630\u0651\u0631 \u062a\u062d\u0645\u064a\u0644 \u0627\u0644\u0645\u0648\u0627\u0639\u064a\u062f \u0627\u0644\u0645\u062a\u0627\u062d\u0629.',
-  'No available times for this cart on this date. Choose another day.': '\u0644\u0627 \u062a\u0648\u062c\u062f \u0645\u0648\u0627\u0639\u064a\u062f \u0645\u062a\u0627\u062d\u0629 \u0644\u0647\u0630\u0647 \u0627\u0644\u0633\u0644\u0629 \u0641\u064a \u0647\u0630\u0627 \u0627\u0644\u064a\u0648\u0645. \u0627\u062e\u062a\u0631 \u064a\u0648\u0645\u064b\u0627 \u0622\u062e\u0631.',
+  Cart: '\u0627\u0644\u0633\u0644\u0629',  'Treatment time': '\u0645\u062f\u0629 \u0627\u0644\u0639\u0644\u0627\u062c\u0627\u062a',
+  'Includes the required space between treatments.': '\u064a\u0634\u0645\u0644 \u0627\u0644\u0648\u0642\u062a \u0627\u0644\u0644\u0627\u0632\u0645 \u0628\u064a\u0646 \u0627\u0644\u0639\u0644\u0627\u062c\u0627\u062a.',  'Add to cart': '\u0623\u0636\u0641 \u0625\u0644\u0649 \u0627\u0644\u0633\u0644\u0629', 'Your cart': '\u0633\u0644\u062a\u0643', Remove: '\u0625\u0632\u0627\u0644\u0629',
+  'Your cart is empty. Add one or more treatments to continue.': '\u0633\u0644\u062a\u0643 \u0641\u0627\u0631\u063a\u0629. \u0623\u0636\u0641 \u0639\u0644\u0627\u062c\u064b\u0627 \u0648\u0627\u062d\u062f\u064b\u0627 \u0623\u0648 \u0623\u0643\u062b\u0631 \u0644\u0644\u0645\u062a\u0627\u0628\u0639\u0629.',  'No available times for this cart on this date. Choose another day.': '\u0644\u0627 \u062a\u0648\u062c\u062f \u0645\u0648\u0627\u0639\u064a\u062f \u0645\u062a\u0627\u062d\u0629 \u0644\u0647\u0630\u0647 \u0627\u0644\u0633\u0644\u0629 \u0641\u064a \u0647\u0630\u0627 \u0627\u0644\u064a\u0648\u0645. \u0627\u062e\u062a\u0631 \u064a\u0648\u0645\u064b\u0627 \u0622\u062e\u0631.',
   'Current policy details are demo/setup placeholders.': '\u062a\u0641\u0627\u0635\u064a\u0644 \u0627\u0644\u0633\u064a\u0627\u0633\u0629 \u0627\u0644\u062d\u0627\u0644\u064a\u0629 \u0623\u0645\u062b\u0644\u0629 \u062a\u062c\u0631\u064a\u0628\u064a\u0629.',
   'Reserve cart': '\u0623\u0643\u0651\u062f \u0627\u0644\u062d\u062c\u0632', 'Reservation summary': '\u0645\u0644\u062e\u0635 \u0627\u0644\u062d\u062c\u0632',
   'Total duration': '\u0627\u0644\u0645\u062f\u0629 \u0627\u0644\u0643\u0644\u064a\u0629', Total: '\u0627\u0644\u0645\u062c\u0645\u0648\u0639', Date: '\u0627\u0644\u062a\u0627\u0631\u064a\u062e', Time: '\u0627\u0644\u0648\u0642\u062a',
-  'Cancellation policy is a demo/setup placeholder.': '\u0633\u064a\u0627\u0633\u0629 \u0627\u0644\u0625\u0644\u063a\u0627\u0621 \u0645\u062b\u0627\u0644 \u062a\u062c\u0631\u064a\u0628\u064a.',
-  'Retry loading treatments': '\u0623\u0639\u062f \u0645\u062d\u0627\u0648\u0644\u0629 \u062a\u062d\u0645\u064a\u0644 \u0627\u0644\u0639\u0644\u0627\u062c\u0627\u062a',
-  'Cookie consent': '\u0625\u0639\u062f\u0627\u062f\u0627\u062a \u0627\u0644\u0643\u0648\u0643\u064a\u0632', 'Your privacy matters': '\u062e\u0635\u0648\u0635\u064a\u062a\u0643 \u062a\u0647\u0645\u0646\u0627',
+  'Cancellation policy is a demo/setup placeholder.': '\u0633\u064a\u0627\u0633\u0629 \u0627\u0644\u0625\u0644\u063a\u0627\u0621 \u0645\u062b\u0627\u0644 \u062a\u062c\u0631\u064a\u0628\u064a.',  'Cookie consent': '\u0625\u0639\u062f\u0627\u062f\u0627\u062a \u0627\u0644\u0643\u0648\u0643\u064a\u0632', 'Your privacy matters': '\u062e\u0635\u0648\u0635\u064a\u062a\u0643 \u062a\u0647\u0645\u0646\u0627',
   'We use essential cookies and browser storage for sign-in, your cart, language, and booking flow. We do not currently use analytics or advertising cookies.': '\u0646\u0633\u062a\u062e\u062f\u0645 \u0643\u0648\u0643\u064a\u0632 \u0623\u0633\u0627\u0633\u064a\u0629 \u0648\u062a\u062e\u0632\u064a\u0646 \u0627\u0644\u0645\u062a\u0635\u0641\u062d \u0644\u062a\u0633\u062c\u064a\u0644 \u0627\u0644\u062f\u062e\u0648\u0644 \u0648\u0627\u0644\u0633\u0644\u0629 \u0648\u0627\u0644\u0644\u063a\u0629 \u0648\u0627\u0644\u062d\u062c\u0632. \u0644\u0627 \u0646\u0633\u062a\u062e\u062f\u0645 \u062d\u0627\u0644\u064a\u064b\u0627 \u0643\u0648\u0643\u064a\u0632 \u0644\u0644\u062a\u062d\u0644\u064a\u0644 \u0623\u0648 \u0627\u0644\u0625\u0639\u0644\u0627\u0646\u0627\u062a.',
   'Accept all': '\u0642\u0628\u0648\u0644 \u0627\u0644\u0643\u0644', 'Reject optional': '\u0631\u0641\u0636 \u0627\u0644\u0627\u062e\u062a\u064a\u0627\u0631\u064a', 'Cookie details': '\u062a\u0641\u0627\u0635\u064a\u0644 \u0627\u0644\u0643\u0648\u0643\u064a\u0632', 'Hide details': '\u0625\u062e\u0641\u0627\u0621 \u0627\u0644\u062a\u0641\u0627\u0635\u064a\u0644',
   'Essential storage': '\u062a\u062e\u0632\u064a\u0646 \u0623\u0633\u0627\u0633\u064a', 'Required for sign-in, cart, language, and booking features; always active.': '\u0636\u0631\u0648\u0631\u064a \u0644\u062a\u0633\u062c\u064a\u0644 \u0627\u0644\u062f\u062e\u0648\u0644 \u0648\u0627\u0644\u0633\u0644\u0629 \u0648\u0627\u0644\u0644\u063a\u0629 \u0648\u0645\u064a\u0632\u0627\u062a \u0627\u0644\u062d\u062c\u0632\u060c \u0648\u064a\u0638\u0644 \u0645\u0641\u0639\u0644\u064b\u0627.',
   'Optional tracking': '\u062a\u062a\u0628\u0639 \u0627\u062e\u062a\u064a\u0627\u0631\u064a', 'No analytics or advertising trackers are currently enabled.': '\u0644\u0627 \u062a\u0648\u062c\u062f \u062d\u0627\u0644\u064a\u064b\u0627 \u0623\u062f\u0648\u0627\u062a \u062a\u062a\u0628\u0639 \u062a\u062d\u0644\u064a\u0644\u064a\u0629 \u0623\u0648 \u0625\u0639\u0644\u0627\u0646\u064a\u0629 \u0645\u0641\u0639\u0644\u0629.',
   'Read our privacy information': '\u0627\u0642\u0631\u0623 \u0645\u0639\u0644\u0648\u0645\u0627\u062a \u0627\u0644\u062e\u0635\u0648\u0635\u064a\u0629', 'Cookie settings': '\u0625\u0639\u062f\u0627\u062f\u0627\u062a \u0627\u0644\u0643\u0648\u0643\u064a\u0632',
+  Daily: '\u064a\u0648\u0645\u064a\u064b\u0627', Explore: '\u0627\u0633\u062a\u0643\u0634\u0641', 'Find us': '\u0645\u0648\u0642\u0639\u0646\u0627', Directions: '\u0627\u0644\u0627\u062a\u062c\u0627\u0647\u0627\u062a',
+  'Beauty, hair & wellness in M\'saken.': '\u062c\u0645\u0627\u0644 \u0648\u0639\u0646\u0627\u064a\u0629 \u0628\u0627\u0644\u0634\u0639\u0631 \u0648\u0627\u0644\u0631\u0641\u0627\u0647 \u0641\u064a \u0645\u0633\u0627\u0643\u0646.',
+  'We couldn\'t reach the schedule.': '\u062a\u0639\u0630\u0651\u0631 \u0627\u0644\u0648\u0635\u0648\u0644 \u0625\u0644\u0649 \u0627\u0644\u062c\u062f\u0648\u0644.',
+  'Added to cart': '\u0623\u064f\u0636\u064a\u0641 \u0625\u0644\u0649 \u0627\u0644\u0633\u0644\u0629', Added: '\u0623\u064f\u0636\u064a\u0641', Add: '\u0623\u0636\u0641', Book: '\u0627\u062d\u062c\u0632',
+  'Browse the current treatment menu and appointment details.': '\u0627\u0637\u0651\u0644\u0639 \u0639\u0644\u0649 \u0627\u0644\u0639\u0644\u0627\u062c\u0627\u062a \u0627\u0644\u0645\u062a\u0627\u062d\u0629 \u0648\u062a\u0641\u0627\u0635\u064a\u0644\u0647\u0627.',
+  'Filter treatments by category': '\u0635\u0641\u0651\u064d \u0627\u0644\u0639\u0644\u0627\u062c\u0627\u062a \u062d\u0633\u0628 \u0627\u0644\u0641\u0626\u0629',
+  'Scroll to more treatment categories': '\u0645\u0631\u0651\u0631 \u0644\u0631\u0624\u064a\u0629 \u0645\u0632\u064a\u062f \u0645\u0646 \u0627\u0644\u0641\u0626\u0627\u062a',
+  'Scroll to explore': '\u0645\u0631\u0651\u0631 \u0644\u0644\u0627\u0633\u062a\u0643\u0634\u0627\u0641',
+  'The menu is taking shape.': '\u064a\u062a\u0645 \u062a\u062d\u0636\u064a\u0631 \u0642\u0627\u0626\u0645\u0629 \u0627\u0644\u0639\u0644\u0627\u062c\u0627\u062a.',
+  'No treatments are available for this selection right now.': '\u0644\u0627 \u062a\u0648\u062c\u062f \u0639\u0644\u0627\u062c\u0627\u062a \u0645\u062a\u0627\u062d\u0629 \u0644\u0647\u0630\u0627 \u0627\u0644\u0627\u062e\u062a\u064a\u0627\u0631 \u062d\u0627\u0644\u064a\u064b\u0627.',
+  'That treatment is already in your cart.': '\u0647\u0630\u0627 \u0627\u0644\u0639\u0644\u0627\u062c \u0645\u0648\u062c\u0648\u062f \u0645\u0633\u0628\u0642\u064b\u0627 \u0641\u064a \u0633\u0644\u062a\u0643.',
+  'Your cart can contain up to eight treatments.': '\u064a\u0645\u0643\u0646 \u0623\u0646 \u062a\u062d\u062a\u0648\u064a \u0633\u0644\u062a\u0643 \u0639\u0644\u0649 \u062b\u0645\u0627\u0646\u064a\u0629 \u0639\u0644\u0627\u062c\u0627\u062a \u0643\u062d\u062f \u0623\u0642\u0635\u0649.',
+  'Add at least one treatment to your cart.': '\u0623\u0636\u0641 \u0639\u0644\u0627\u062c\u064b\u0627 \u0648\u0627\u062d\u062f\u064b\u0627 \u0639\u0644\u0649 \u0627\u0644\u0623\u0642\u0644 \u0625\u0644\u0649 \u0633\u0644\u062a\u0643.',
+  'Choose treatments, add them to your cart, and reserve them together.': '\u0627\u062e\u062a\u0631 \u0639\u0644\u0627\u062c\u0627\u062a\u0643\u060c \u0623\u0636\u0641\u0647\u0627 \u0625\u0644\u0649 \u0633\u0644\u062a\u0643\u060c \u0648\u0627\u062d\u062c\u0632\u0647\u0627 \u0645\u0639\u064b\u0627.',
+  'Loading treatments': '\u062c\u0627\u0631\u064d \u062a\u062d\u0645\u064a\u0644 \u0627\u0644\u0639\u0644\u0627\u062c\u0627\u062a', 'Retry loading treatments': '\u0623\u0639\u062f \u0645\u062d\u0627\u0648\u0644\u0629 \u062a\u062d\u0645\u064a\u0644 \u0627\u0644\u0639\u0644\u0627\u062c\u0627\u062a',
+  'Previous month': '\u0627\u0644\u0634\u0647\u0631 \u0627\u0644\u0633\u0627\u0628\u0642', 'Next month': '\u0627\u0644\u0634\u0647\u0631 \u0627\u0644\u062a\u0627\u0644\u064a',
+  'Availability could not be loaded.': '\u062a\u0639\u0630\u0651\u0631 \u062a\u062d\u0645\u064a\u0644 \u0627\u0644\u0645\u0648\u0627\u0639\u064a\u062f \u0627\u0644\u0645\u062a\u0627\u062d\u0629.',
+  'Checking and booking…': '\u062c\u0627\u0631\u064d \u0627\u0644\u062a\u062d\u0642\u0642 \u0645\u0646 \u0627\u0644\u062a\u0648\u0641\u0631 \u0648\u0625\u062a\u0645\u0627\u0645 \u0627\u0644\u062d\u062c\u0632…',
+  'Profile': '\u0627\u0644\u0645\u0644\u0641 \u0627\u0644\u0634\u062e\u0635\u064a', 'History': '\u0627\u0644\u0633\u062c\u0644', 'New visit': '\u0632\u064a\u0627\u0631\u0629 \u062c\u062f\u064a\u062f\u0629',
+  'Booking history': '\u0633\u062c\u0644 \u0627\u0644\u062d\u062c\u0648\u0632\u0627\u062a',
+  'DAILY OPERATIONS': '\u0627\u0644\u0639\u0645\u0644\u064a\u0627\u062a \u0627\u0644\u064a\u0648\u0645\u064a\u0629',
+  'Bookings and follow-up': '\u0627\u0644\u062d\u062c\u0648\u0632\u0627\u062a \u0648\u0627\u0644\u0645\u062a\u0627\u0628\u0639\u0629',
+  'Review requests, confirm visits, and keep the schedule moving.': '\u0631\u0627\u062c\u0639 \u0627\u0644\u0637\u0644\u0628\u0627\u062a\u060c \u0623\u0643\u0651\u062f \u0627\u0644\u0632\u064a\u0627\u0631\u0627\u062a\u060c \u0648\u062d\u062f\u0651\u062b \u0627\u0644\u062c\u062f\u0648\u0644.',
+  'Booking date': '\u062a\u0627\u0631\u064a\u062e \u0627\u0644\u062d\u062c\u0632', 'BOOKINGS ON SELECTED DATE': '\u0627\u0644\u062d\u062c\u0648\u0632\u0627\u062a \u0641\u064a \u0627\u0644\u062a\u0627\u0631\u064a\u062e \u0627\u0644\u0645\u062d\u062f\u062f', 'NEEDS CONFIRMATION': '\u0628\u0627\u0646\u062a\u0638\u0627\u0631 \u0627\u0644\u062a\u0623\u0643\u064a\u062f',
+  'Search this list': '\u0627\u0628\u062d\u062b \u0641\u064a \u0627\u0644\u0642\u0627\u0626\u0645\u0629',
+  'Bookings & reservations': '\u0627\u0644\u062d\u062c\u0648\u0632\u0627\u062a \u0648\u0627\u0644\u0645\u0648\u0627\u0639\u064a\u062f',
+  'SALON ADMINISTRATION': '\u0625\u062f\u0627\u0631\u0629 \u0627\u0644\u0645\u0631\u0643\u0632',
+  'Manage confirmation calls, discounts (1-50%), and cart changes.': '\u0623\u062f\u0631 \u0645\u0643\u0627\u0644\u0645\u0627\u062a \u062a\u0623\u0643\u064a\u062f \u0627\u0644\u062d\u062c\u0632\u060c \u0648\u0627\u0644\u062a\u062e\u0641\u064a\u0636\u0627\u062a (1-50%)\u060c \u0648\u062a\u0639\u062f\u064a\u0644\u0627\u062a \u0627\u0644\u0633\u0644\u0629.',
+  'treatment(s) selected': '\u0639\u0644\u0627\u062c\u0627\u062a \u0645\u062d\u062f\u062f\u0629', 'Your cart is empty': '\u0633\u0644\u062a\u0643 \u0641\u0627\u0631\u063a\u0629',
+  'Browse treatments and add them to build your appointment.': '\u062a\u0635\u0641\u0651\u062d \u0627\u0644\u0639\u0644\u0627\u062c\u0627\u062a \u0648\u0623\u0636\u0641 \u0645\u0627 \u062a\u062e\u062a\u0627\u0631\u0647 \u0644\u062d\u062c\u0632\u0643.',
+  'Estimated treatment time': '\u0627\u0644\u0645\u062f\u0629 \u0627\u0644\u0643\u0644\u064a\u0629 \u0644\u0644\u0639\u0644\u0627\u062c\u0627\u062a', 'Confirm and choose a time': '\u0623\u0643\u0651\u062f \u0648\u0627\u062e\u062a\u0631 \u0645\u0648\u0639\u062f\u064b\u0627',
+  'Clear cart': '\u0625\u0641\u0631\u0627\u063a \u0627\u0644\u0633\u0644\u0629', 'Pay at the spa': '\u0627\u0644\u062f\u0641\u0639 \u0641\u064a \u0627\u0644\u0645\u0631\u0643\u0632', 'Book now': '\u0627\u062d\u062c\u0632 \u0627\u0644\u0622\u0646',
+  'Plan your visit': '\u062e\u0637\u0651\u0637 \u0644\u0632\u064a\u0627\u0631\u062a\u0643', 'The details that make a visit easy.': '\u0645\u0639\u0644\u0648\u0645\u0627\u062a \u062a\u062c\u0639\u0644 \u0632\u064a\u0627\u0631\u062a\u0643 \u0623\u0633\u0647\u0644.',
+  'Find us in M\'saken, open every day from 9:00 AM to 7:00 PM.': '\u062a\u062c\u062f\u0646\u0627 \u0641\u064a \u0645\u0633\u0627\u0643\u0646. \u0645\u0641\u062a\u0648\u062d\u0648\u0646 \u064a\u0648\u0645\u064a\u064b\u0627 \u0645\u0646 9 \u0635\u0628\u0627\u062d\u064b\u0627 \u0625\u0644\u0649 7 \u0645\u0633\u0627\u0621\u064b.',
+  'Location & contact': '\u0627\u0644\u0645\u0648\u0642\u0639 \u0648\u0645\u0639\u0644\u0648\u0645\u0627\u062a \u0627\u0644\u0627\u062a\u0635\u0627\u0644', 'Opening hours': '\u0633\u0627\u0639\u0627\u062a \u0627\u0644\u0639\u0645\u0644',
+  'Open in Google Maps': '\u0627\u0641\u062a\u062d \u0641\u064a \u062e\u0631\u0627\u0626\u0637 Google', 'Hours may vary on public holidays.': '\u0642\u062f \u062a\u062e\u062a\u0644\u0641 \u0627\u0644\u0633\u0627\u0639\u0627\u062a \u0641\u064a \u0627\u0644\u0623\u0639\u064a\u0627\u062f.',
+  'Information you provide': '\u0627\u0644\u0645\u0639\u0644\u0648\u0645\u0627\u062a \u0627\u0644\u062a\u064a \u062a\u0642\u062f\u0645\u0647\u0627', 'Cookies & service providers': '\u0645\u0644\u0641\u0627\u062a \u0627\u0644\u0627\u0631\u062a\u0628\u0627\u0637 \u0648\u0645\u0642\u062f\u0645\u0648 \u0627\u0644\u062e\u062f\u0645\u0627\u062a',
+  'Your choices': '\u062e\u064a\u0627\u0631\u0627\u062a\u0643', 'Policy updates': '\u062a\u062d\u062f\u064a\u062b\u0627\u062a \u0627\u0644\u062e\u0635\u0648\u0635\u064a\u0629',
+  'BEFORE YOU ARRIVE': '\u0642\u0628\u0644 \u0632\u064a\u0627\u0631\u062a\u0643',
+  'Follow on Instagram': '\u062a\u0627\u0628\u0639\u0646\u0627 \u0639\u0644\u0649 Instagram', 'Follow on Facebook': '\u062a\u0627\u0628\u0639\u0646\u0627 \u0639\u0644\u0649 Facebook',
+  'CONFIRMED BY PHONE': '\u0645\u0624\u0643\u062f\u0629 \u0647\u0627\u062a\u0641\u064a\u064b\u0627', 'COMPLETED / PAID': '\u0645\u0643\u062a\u0645\u0644\u0629 / \u0645\u062f\u0641\u0648\u0639\u0629',
+  Filter: '\u062a\u0635\u0641\u064a\u0629', 'Awaiting confirmation': '\u0628\u0627\u0646\u062a\u0638\u0627\u0631 \u0627\u0644\u062a\u0623\u0643\u064a\u062f', Confirmed: '\u0645\u0624\u0643\u062f', Completed: '\u0645\u0643\u062a\u0645\u0644',
+  'Unreachable / Rejected': '\u062a\u0639\u0630\u0651\u0631 \u0627\u0644\u0627\u062a\u0635\u0627\u0644 / \u0645\u0631\u0641\u0648\u0636', at: '\u0641\u064a',
+  'A considered beauty and wellness experience · Complexe Rouis': '\u062a\u062c\u0631\u0628\u0629 \u062c\u0645\u0627\u0644 \u0648\u0639\u0646\u0627\u064a\u0629 \u0645\u062a\u0643\u0627\u0645\u0644\u0629 \u0645\u0639 \u0645\u0631\u0643\u0632 \u0631\u0648\u064a\u0633',
+  'Please try again in a moment.': '\u064a\u0631\u062c\u0649 \u0627\u0644\u0645\u062d\u0627\u0648\u0644\u0629 \u0645\u0631\u0629 \u0623\u062e\u0631\u0649 \u0628\u0639\u062f \u0642\u0644\u064a\u0644.',
+  'See details': '\u0639\u0631\u0636 \u0627\u0644\u062a\u0641\u0627\u0635\u064a\u0644', 'THE TREATMENT MENU': '\u0642\u0627\u0626\u0645\u0629 \u0627\u0644\u0639\u0644\u0627\u062c\u0627\u062a',
+  'Find your kind of pause.': '\u0627\u062e\u062a\u0631 \u0644\u062d\u0638\u062a\u0643 \u0627\u0644\u0647\u0627\u062f\u0626\u0629.',
+  'Each visit has its own pace. Explore the current menu, and choose the time that works for you.': '\u0644\u0643\u0644 \u0632\u064a\u0627\u0631\u0629 \u0625\u064a\u0642\u0627\u0639\u0647\u0627. \u062a\u0635\u0641\u0651\u062d \u0627\u0644\u0639\u0644\u0627\u062c\u0627\u062a \u0648\u0627\u062e\u062a\u0631 \u0627\u0644\u0648\u0642\u062a \u0627\u0644\u0645\u0646\u0627\u0633\u0628.',
+  All: '\u0627\u0644\u0643\u0644', minutes: '\u062f\u0642\u0627\u0626\u0642',
+});
+
+Object.assign(translations.fr, {
+  "Loading bookings and carts…": "Chargement des rendez-vous et paniers…",
+  "Search by phone number or customer name…": "Rechercher par téléphone ou nom du client…",
+  "Customer bookings": "Rendez-vous clients",
+  "booking(s) shown": "rendez-vous affiché(s)",
+  "No matching bookings": "Aucun rendez-vous correspondant",
+  "Adjust the phone search or status filter.": "Modifiez la recherche par téléphone ou le filtre de statut.",
+  "Treatment completed": "Soin terminé",
+  "Call this number": "Appeler ce numéro",
+  "No phone number": "Aucun numéro de téléphone",
+  "Net total due:": "Total net à payer :",
+  "Current treatments in booking:": "Soins actuels du rendez-vous :",
+  "Add an extra treatment (offered during the call):": "Ajouter un soin proposé pendant l’appel :",
+  "Choose from available treatments…": "Choisir parmi les soins disponibles…",
+  "Staff assignment saved for": "Membre de l’équipe affecté avec succès à",
+  "Mark as unreachable or rejected": "Marquer comme injoignable ou refusé"
+});
+Object.assign(translations.ar, {
+  "Loading bookings and carts…": "جارٍ تحميل الحجوزات والسلال…",
+  "Search by phone number or customer name…": "ابحث برقم الهاتف أو اسم العميل…",
+  "Customer bookings": "حجوزات العملاء",
+  "booking(s) shown": "حجز معروض",
+  "No matching bookings": "لا توجد حجوزات مطابقة",
+  "Adjust the phone search or status filter.": "عدّل البحث برقم الهاتف أو عامل تصفية الحالة.",
+  "Treatment completed": "اكتمل العلاج",
+  "Call this number": "اتصل بهذا الرقم",
+  "No phone number": "لا يوجد رقم هاتف",
+  "Net total due:": "الصافي المستحق:",
+  "Current treatments in booking:": "الخدمات الحالية في الحجز:",
+  "Add an extra treatment (offered during the call):": "أضف خدمة إضافية (عُرضت أثناء الاتصال):",
+  "Choose from available treatments…": "اختر من الخدمات المتاحة…",
+  "Staff assignment saved for": "تم تعيين عضو الفريق بنجاح لـ",
+  "Mark as unreachable or rejected": "وضع علامة غير قابل للوصول أو مرفوض"
+});
+
+Object.assign(translations.fr, {
+  "Treatment updated successfully.": "Le soin a bien été mis à jour.",
+  "Treatment created successfully.": "Le soin a bien été ajouté.",
+  "deactivate": "désactiver",
+  "reactivate": "réactiver",
+  "Would you like to": "Voulez-vous",
+  "this treatment?": "ce soin ?",
+  "treatments saved in the catalog": "soins enregistrés dans le catalogue",
+  "Photo set": "Photo ajoutée",
+  "No photo": "Aucune photo",
+  "Deactivate": "Désactiver",
+  "Reactivate": "Réactiver",
+  "Create a treatment": "Créer un soin",
+  "Other (custom)": "Autre (personnalisée)",
+  "New category name": "Nom de la nouvelle catégorie",
+  "Short description (shown on the card)": "Description courte (affichée sur la carte)",
+  "Deep cleansing and facial glow treatment.": "Nettoyage profond et soin éclat du visage.",
+  "Full description (treatment page)": "Description détaillée (page du soin)",
+  "Treatment steps and benefits…": "Protocole, étapes et bienfaits de la séance…",
+  "recommended": "recommandé",
+  "Recommended formats: JPEG, PNG or WebP (4:3 or 16:9 ratio, max 3 MB).": "Formats recommandés : JPEG, PNG ou WebP (ratio 4:3 ou 16:9, max 3 Mo).",
+  "Treatment preview": "Aperçu du soin",
+  "Live preview": "Aperçu en direct",
+  "Price in dinars and duration": "Tarif en dinars et durée",
+  "Duration (minutes)": "Durée (minutes)"
+});
+Object.assign(translations.ar, {
+  "Treatment updated successfully.": "تم تحديث الخدمة بنجاح.",
+  "Treatment created successfully.": "تمت إضافة الخدمة بنجاح.",
+  "deactivate": "تعطيل",
+  "reactivate": "إعادة التفعيل",
+  "Would you like to": "هل تريد",
+  "this treatment?": "هذه الخدمة؟",
+  "treatments saved in the catalog": "خدمة محفوظة في القائمة",
+  "Photo set": "تمت إضافة الصورة",
+  "No photo": "لا توجد صورة",
+  "Deactivate": "تعطيل",
+  "Reactivate": "إعادة التفعيل",
+  "Edit treatment": "تعديل الخدمة",
+  "Create a treatment": "إنشاء خدمة",
+  "Category": "الفئة",
+  "Other (custom)": "أخرى (مخصصة)",
+  "New category name": "اسم الفئة الجديدة",
+  "Short description (shown on the card)": "وصف مختصر (يظهر على البطاقة)",
+  "Deep cleansing and facial glow treatment.": "تنظيف عميق وعناية لنضارة الوجه.",
+  "Full description (treatment page)": "الوصف الكامل (صفحة الخدمة)",
+  "Treatment steps and benefits…": "خطوات الخدمة وفوائدها…",
+  "recommended": "موصى به",
+  "Recommended formats: JPEG, PNG or WebP (4:3 or 16:9 ratio, max 3 MB).": "الصيغ الموصى بها: JPEG أو PNG أو WebP (نسبة 4:3 أو 16:9، بحد أقصى 3 ميغابايت).",
+  "Treatment preview": "معاينة الخدمة",
+  "Live preview": "معاينة مباشرة",
+  "Price in dinars and duration": "السعر بالدينار والمدة",
+  "Duration (minutes)": "المدة (بالدقائق)"
+});
+
+Object.assign(translations.fr, { Navigation: 'Navigation' });
+Object.assign(translations.ar, { Navigation: 'التنقل' });
+
+Object.assign(translations.fr, {
+  'A bright, welcoming salon interior at Complexe Rouis': 'Un intérieur lumineux et accueillant au Complexe Rouis',
+  'Inside Complexe Rouis': 'À l’intérieur du Complexe Rouis',
+});
+Object.assign(translations.ar, {
+  'A bright, welcoming salon interior at Complexe Rouis': 'مساحة صالون مشرقة ومرحّبة في مركز رويس',
+  'Inside Complexe Rouis': 'من داخل مركز رويس',
 });
 
 type LanguageContextValue = { language: Language; setLanguage: (language: Language) => void; t: (english: string) => string };
@@ -227,28 +445,42 @@ function initialLanguage(): Language {
   try {
     const stored = window.localStorage.getItem(LANGUAGE_KEY);
     if (stored === 'fr' || stored === 'ar' || stored === 'en') return stored;
-    return 'fr';
+    return DEFAULT_LANGUAGE;
   } catch {
-    return 'fr';
+    return DEFAULT_LANGUAGE;
   }
+}
+
+export function getIntlLocale(language: Language): string {
+  return language === 'ar' ? 'ar-TN' : language === 'fr' ? 'fr-TN' : 'en-TN';
 }
 
 export function LanguageProvider({ children }: { children: ReactNode }) {
   const [language, setLanguageState] = useState<Language>(initialLanguage);
-  const setLanguage = (next: Language) => {
+  const setLanguage = useCallback((next: Language) => {
     setLanguageState(next);
     try { window.localStorage.setItem(LANGUAGE_KEY, next); } catch { /* storage is optional */ }
-  };
+  }, []);
 
   useEffect(() => {
     document.documentElement.lang = language;
     document.documentElement.dir = language === 'ar' ? 'rtl' : 'ltr';
   }, [language]);
 
+  useEffect(() => {
+    const syncLanguage = (event: StorageEvent) => {
+      if (event.key !== LANGUAGE_KEY) return;
+      const stored = event.newValue;
+      if (stored === 'fr' || stored === 'ar' || stored === 'en') setLanguageState(stored);
+    };
+    window.addEventListener('storage', syncLanguage);
+    return () => window.removeEventListener('storage', syncLanguage);
+  }, []);
+
   const value = useMemo<LanguageContextValue>(() => ({
     language,
     setLanguage,
-    t: (english) => language === 'en' ? english : translations[language][english] ?? english,
+    t: (english) => translations[language][english] ?? english,
   }), [language]);
 
   return <LanguageContext.Provider value={value}>{children}</LanguageContext.Provider>;

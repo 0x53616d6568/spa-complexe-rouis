@@ -3,7 +3,7 @@ import { Link, useLocation } from 'wouter';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useClerk, useUser } from '@/lib/safe-clerk';
 import { useTheme } from 'next-themes';
-import { useLanguage } from '@/lib/i18n';
+import { getIntlLocale, useLanguage } from '@/lib/i18n';
 import { ROUIS_SERVICES, ROUIS_CATEGORIES, formatPriceDT, formatMoneyDT, type RouisService, type RouisCategory } from '@/lib/rouis-services';
 import {
   useHealthCheck,
@@ -23,10 +23,12 @@ import {
 } from '@workspace/api-client-react';
 import type { AuditEvent, AvailabilitySlot, BookingConfirmation, ManagerBooking, Service, StaffProfile } from '@workspace/api-client-react';
 import { StaffManagementPanel } from '@/components/StaffManagementPanel';
+import { SiFacebook, SiGooglemaps, SiInstagram } from 'react-icons/si';
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import {
-  ArrowRight, ArrowUpRight, CalendarDays, Check, ChevronDown, ChevronLeft, ChevronRight, Clock3, Flower2, HeartHandshake,
+  ArrowRight, ArrowUpRight, CalendarDays, Check, ChevronDown, ChevronLeft, ChevronRight, Clock3, Flower2, HeartHandshake, Home,
   LoaderCircle, Menu, Moon, Pencil, Plus, RefreshCw, ShieldCheck, ShoppingBag, Sparkles, Sun, Trash2, Users, X,
-  Phone, PhoneCall, PhoneOff, Percent, Search, CheckCircle2, XCircle, AlertCircle, Edit3, User, Filter,
+  Phone, PhoneCall, PhoneOff, Percent, Search, CheckCircle2, XCircle, AlertCircle, Edit3, User, Filter, Star, Camera, MapPin,
 } from 'lucide-react';
 
 const BOOKING_CART_STORAGE_KEY = 'stillroom-booking-cart';
@@ -54,22 +56,44 @@ export function addToCartHelper(serviceId: string) {
   }
 }
 
-function Meta({ title, description }: { title: string; description: string }) {
+function Meta({ title, description, noindex = false }: { title: string; description: string; noindex?: boolean }) {
   const { t, language } = useLanguage();
   useEffect(() => {
-    document.title = `${t(title)} · Complexe Rouis`;
-    const meta = document.querySelector('meta[name="description"]');
-    if (meta) meta.setAttribute('content', t(description));
-    else {
-      const element = document.createElement('meta');
-      element.name = 'description';
-      element.content = t(description);
-      document.head.appendChild(element);
+    const translatedTitle = `${t(title)} · Complexe Rouis`;
+    const translatedDescription = t(description);
+    document.title = translatedTitle;
+
+    const setMeta = (selector: string, attribute: 'name' | 'property', key: string, content: string) => {
+      let element = document.querySelector<HTMLMetaElement>(selector);
+      if (!element) {
+        element = document.createElement('meta');
+        element.setAttribute(attribute, key);
+        document.head.appendChild(element);
+      }
+      element.content = content;
+    };
+
+    setMeta('meta[name="description"]', 'name', 'description', translatedDescription);
+    setMeta('meta[name="robots"]', 'name', 'robots', noindex ? 'noindex, follow' : 'index, follow');
+    setMeta('meta[property="og:title"]', 'property', 'og:title', translatedTitle);
+    setMeta('meta[property="og:description"]', 'property', 'og:description', translatedDescription);
+    setMeta('meta[property="og:url"]', 'property', 'og:url', `${window.location.origin}${window.location.pathname}`);
+    setMeta('meta[property="og:locale"]', 'property', 'og:locale', language === 'ar' ? 'ar_TN' : language === 'fr' ? 'fr_TN' : 'en_US');
+    setMeta('meta[name="twitter:title"]', 'name', 'twitter:title', translatedTitle);
+    setMeta('meta[name="twitter:description"]', 'name', 'twitter:description', translatedDescription);
+
+    let canonical = document.querySelector<HTMLLinkElement>('link[rel="canonical"]');
+    if (!canonical) {
+      canonical = document.createElement('link');
+      canonical.rel = 'canonical';
+      document.head.appendChild(canonical);
     }
-  }, [title, description, t]);
+    canonical.href = `${window.location.origin}${window.location.pathname}`;
+  }, [title, description, noindex, t, language]);
   return null;
 }
-function CartDrawer({ open, onClose }: { open: boolean; onClose: () => void }) {
+
+function CartDrawer({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { t } = useLanguage();
   const [, setLocation] = useLocation();
   const services = useListServices();
@@ -143,8 +167,8 @@ function Meta({ title, description }: { title: string; description: string }) {
                 <ShoppingBag size={20} />
               </span>
               <div>
-                <h3 className="serif text-2xl leading-none">{t('Mon Panier')}</h3>
-                <p className="mt-1 text-xs text-muted-foreground">{cartServices.length} {t('soin(s) sélectionné(s)')}</p>
+                <h3 className="serif text-2xl leading-none">{t("Your cart")}</h3>
+                <p className="mt-1 text-xs text-muted-foreground">{cartServices.length} {t("treatment(s) selected")}</p>
               </div>
             </div>
             <button
@@ -160,13 +184,13 @@ function Meta({ title, description }: { title: string; description: string }) {
             {cartServices.length === 0 ? (
               <div className="py-16 text-center">
                 <Flower2 className="mx-auto text-muted-foreground/30" size={44} />
-                <p className="serif mt-3 text-2xl">{t('Votre panier est vide')}</p>
-                <p className="mt-2 text-xs leading-5 text-muted-foreground max-w-xs mx-auto">{t('Parcourez nos soins et cliquez sur "+ Panier" pour composer votre séance personnalisée.')}</p>
+                <p className="serif mt-3 text-2xl">{t("Your cart is empty")}</p>
+                <p className="mt-2 text-xs leading-5 text-muted-foreground max-w-xs mx-auto">{t("Browse treatments and add them to build your appointment.")}</p>
                 <button
                   onClick={() => { onClose(); setLocation('/services'); }}
                   className="mt-6 inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-xs font-medium text-primary-foreground shadow-sm hover:opacity-95 transition"
                 >
-                  {t('Découvrir les soins')} <ArrowRight size={13} />
+                  {t("Explore treatments")} <ArrowRight size={13} />
                 </button>
               </div>
             ) : (
@@ -176,7 +200,7 @@ function Meta({ title, description }: { title: string; description: string }) {
                     <p className="text-sm font-medium leading-tight truncate">{service.name}</p>
                     <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
                       <span className="rounded bg-background px-1.5 py-0.5 text-[10px] uppercase tracking-wider">{service.category}</span>
-                      <span>•</span>
+                      <span aria-hidden="true">&bull;</span>
                       <span>{service.durationMinutes} min</span>
                     </div>
                   </div>
@@ -187,7 +211,7 @@ function Meta({ title, description }: { title: string; description: string }) {
                     <button
                       onClick={() => removeItem(service.id)}
                       className="rounded-full p-1.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition"
-                      title={t('Supprimer du panier')}
+                      title={t("Remove")}
                     >
                       <Trash2 size={15} />
                     </button>
@@ -201,18 +225,18 @@ function Meta({ title, description }: { title: string; description: string }) {
         {cartServices.length > 0 && (
           <div className="border-t border-border/80 pt-4 space-y-3 bg-card">
             <div className="flex items-center justify-between text-xs text-muted-foreground">
-              <span>{t('Durée totale estimée')}</span>
+              <span>{t("Estimated treatment time")}</span>
               <span className="font-medium text-foreground">{totalDuration} min</span>
             </div>
             <div className="flex items-center justify-between text-base font-semibold">
-              <span>{t('Total à payer')}</span>
+              <span>{t("Total")}</span>
               <span className="serif text-2xl text-primary">{formatMoney(totalPrice, 'TND')}</span>
             </div>
             <button
               onClick={handleCheckout}
               className="flex w-full items-center justify-center gap-2 rounded-full bg-primary py-3.5 text-sm font-medium text-primary-foreground shadow-md hover:opacity-95 transition"
             >
-              <span>{t('Confirmer & Choisir créneau')}</span>
+              <span>{t("Confirm and choose a time")}</span>
               <ArrowRight size={16} />
             </button>
             <div className="flex items-center justify-between pt-1">
@@ -220,9 +244,9 @@ function Meta({ title, description }: { title: string; description: string }) {
                 onClick={clearCart}
                 className="text-[11px] text-muted-foreground hover:text-destructive transition underline"
               >
-                {t('Vider le panier')}
+                {t("Clear cart")}
               </button>
-              <span className="text-[11px] text-muted-foreground">{t('Paiement au salon')}</span>
+              <span className="text-[11px] text-muted-foreground">{t("Pay at the spa")}</span>
             </div>
           </div>
         )}
@@ -239,6 +263,34 @@ function HealthPip() {
   </span>;
 }
 
+function FooterExternalLink({ href, children }: { href: string; children: ReactNode }) {
+  return <a href={href} target="_blank" rel="noopener noreferrer" className="min-h-11 py-2 text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent">{children}</a>;
+}
+
+function BrandMark({ className = 'h-10 w-10' }: { className?: string }) {
+  return <img src="/logo.png" alt="" width="48" height="48" className={`shrink-0 object-cover mix-blend-screen ${className}`} />;
+}
+
+function LanguageSelector({ id, className = '' }: { id: string; className?: string }) {
+  const { language, setLanguage, t } = useLanguage();
+  return <div className={`relative min-w-0 ${className}`}>
+    <label htmlFor={id} className="sr-only">{t('Language')}</label>
+    <select
+      id={id}
+      aria-label={t('Language')}
+      dir={language === 'ar' ? 'rtl' : 'ltr'}
+      value={language}
+      onChange={event => setLanguage(event.target.value as 'en' | 'fr' | 'ar')}
+      className="h-10 w-full min-w-0 appearance-none rounded-full border border-border bg-card ps-3 pe-9 text-xs text-foreground shadow-sm transition-colors hover:border-primary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+    >
+      <option value="en">English</option>
+      <option value="fr">Français</option>
+      <option value="ar">العربية</option>
+    </select>
+    <ChevronDown aria-hidden="true" size={14} className="pointer-events-none absolute end-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+  </div>;
+}
+
 export function SiteShell({ children }: { children: ReactNode }) {
   const [open, setOpen] = useState(false);
   const [cartDrawerOpen, setCartDrawerOpen] = useState(false);
@@ -250,7 +302,7 @@ export function SiteShell({ children }: { children: ReactNode }) {
   const [currentLocation, setLocation] = useLocation();
   const { signOut } = useClerk();
   const { user } = useUser();
-  const { language, setLanguage, t } = useLanguage();
+  const { t } = useLanguage();
   const { resolvedTheme, setTheme } = useTheme();
 
   useEffect(() => {
@@ -284,16 +336,16 @@ export function SiteShell({ children }: { children: ReactNode }) {
   ];
 
   return <div className="min-h-[100dvh] bg-background text-foreground">
-    <div className="border-b border-border/70 bg-secondary/65 px-4 py-2 text-center text-[11px] tracking-[.16em] text-muted-foreground">
-      Ouvert 7j/7 · 09:00 – 19:00 · Complexe Rouis d'Esthétique
+    <div className="border-b border-border/70 bg-secondary/65 px-4 py-2 text-center text-[11px] tracking-[.08em] text-muted-foreground">
+      {t('A considered beauty and wellness experience · Complexe Rouis')}
     </div>
     <header className="relative z-40 border-b border-border/70 bg-background/95 md:sticky md:top-0 md:backdrop-blur-md">
       <div className="mx-auto flex h-[76px] min-w-0 max-w-[1320px] items-center justify-between gap-2 px-3 sm:px-5 lg:px-10">
         <Link href="/" className="flex min-w-0 shrink items-center gap-2 sm:gap-3" data-testid="link-brand">
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-primary text-primary-foreground"><Flower2 size={21}/></span>
+          <BrandMark className="h-10 w-10 rounded-xl" />
           <span className="min-w-0"><span className="serif block truncate text-[18px] leading-[.9] sm:text-[22px]">Complexe Rouis</span><span className="mono mt-1 hidden truncate text-[8px] tracking-[.2em] text-muted-foreground min-[370px]:block">{t('A NEIGHBORHOOD PAUSE')}</span></span>
         </Link>
-        <nav className="hidden items-center gap-5 lg:gap-8 md:flex">
+        <nav className="hidden items-center gap-5 lg:gap-8 lg:flex">
           {nav.map(item => <Link key={item.href} href={item.href} className="text-[13px] text-foreground/75 transition hover:text-primary" data-testid={`link-nav-${item.label.toLowerCase().replaceAll(' ','-')}`}>{item.label}</Link>)}
         </nav>
         <div className="flex shrink-0 items-center gap-1.5 sm:gap-3">
@@ -313,36 +365,68 @@ export function SiteShell({ children }: { children: ReactNode }) {
             type="button"
             onClick={() => setCartDrawerOpen(true)}
             aria-label={`${t('Cart')}, ${cartCount}`}
-            title={t('Mon Panier')}
+            title={t("Your cart")}
             className="relative inline-flex items-center gap-2 rounded-full border border-border bg-card px-3 py-2 text-xs text-foreground/80 transition hover:border-primary hover:text-primary shadow-sm"
             data-testid="link-header-cart"
           >
             <ShoppingBag size={16}/>
-            <span className="hidden sm:inline font-medium">{t('Panier')}</span>
+            <span className="hidden sm:inline font-medium">{t("Cart")}</span>
             <span className="grid min-h-5 min-w-5 place-items-center rounded-full bg-primary px-1 text-[10px] font-semibold text-primary-foreground">
               {cartCount}
             </span>
           </button>
-          <button className="hidden rounded-full bg-primary px-5 py-3 text-xs font-semibold tracking-wide text-primary-foreground transition hover:-translate-y-0.5 md:block" onClick={() => setLocation('/book')} data-testid="button-header-book">{t('Find a time')} <ArrowRight className="ms-2 inline" size={14}/></button>
-          <button aria-label={t('Find a time')} className="inline-flex shrink-0 items-center gap-1 rounded-full bg-primary px-2.5 py-2 text-[10px] font-semibold text-primary-foreground min-[370px]:px-3 min-[370px]:text-[11px] md:hidden" onClick={() => setLocation('/book')} data-testid="button-header-book-mobile"><span className="truncate">{t('Find a time')}</span><ArrowRight size={13} className="shrink-0"/></button>
-          <select aria-label={t('Language')} value={language} onChange={event=>setLanguage(event.target.value as 'en'|'fr'|'ar')} className="hidden max-w-[104px] rounded-full border border-border bg-card px-2 py-2 text-xs md:block"><option value="en">English</option><option value="fr">Fran&#231;ais</option><option value="ar">&#1575;&#1604;&#1593;&#1585;&#1576;&#1610;&#1577;</option></select>
-          <button type="button" onClick={()=>setTheme(resolvedTheme==='dark'?'light':'dark')} className="hidden rounded-full border border-border p-2 md:inline-flex" aria-label={t(resolvedTheme==='dark'?'Switch to light mode':'Switch to dark mode')} title={t(resolvedTheme==='dark'?'Switch to light mode':'Switch to dark mode')}>{resolvedTheme==='dark'?<Sun size={16}/>:<Moon size={16}/>}</button>
-          <button className="rounded-full p-2 md:hidden" onClick={() => setOpen(!open)} aria-label={open ? t('Close menu') : t('Open menu')} data-testid="button-mobile-menu">{open ? <X size={21}/> : <Menu size={21}/>}</button>
+          <button className="hidden rounded-full bg-primary px-5 py-3 text-xs font-semibold tracking-wide text-primary-foreground transition hover:-translate-y-0.5 lg:block" onClick={() => setLocation('/book')} data-testid="button-header-book">{t('Find a time')} <ArrowRight className="ms-2 inline" size={14}/></button>
+          <button aria-label={t('Find a time')} className="inline-flex shrink-0 items-center gap-1 rounded-full bg-primary px-2.5 py-2 text-[10px] font-semibold text-primary-foreground min-[370px]:px-3 min-[370px]:text-[11px] lg:hidden" onClick={() => setLocation('/book')} data-testid="button-header-book-mobile"><span className="truncate">{t('Find a time')}</span><ArrowRight size={13} className="shrink-0"/></button>
+          <LanguageSelector id="desktop-language" className="hidden w-[132px] lg:block" />
+          <button type="button" onClick={()=>setTheme(resolvedTheme==='dark'?'light':'dark')} className="hidden rounded-full border border-border p-2 lg:inline-flex" aria-label={t(resolvedTheme==='dark'?'Switch to light mode':'Switch to dark mode')} title={t(resolvedTheme==='dark'?'Switch to light mode':'Switch to dark mode')}>{resolvedTheme==='dark'?<Sun size={16}/>:<Moon size={16}/>}</button>
+          <button type="button" aria-expanded={open} aria-controls="mobile-site-menu" className="rounded-full p-2 lg:hidden" onClick={() => setOpen(!open)} aria-label={open ? t('Close menu') : t('Open menu')} data-testid="button-mobile-menu">{open ? <X size={21}/> : <Menu size={21}/>}</button>
         </div>
       </div>
-      {open && <nav className="grid max-h-[calc(100dvh-8rem)] w-full gap-1 overflow-y-auto overscroll-contain border-t border-border px-4 py-3 md:hidden"><div className="flex items-center justify-between gap-3 px-3 py-2"><label htmlFor="mobile-language" className="text-sm">{t('Language')}</label><select id="mobile-language" value={language} onChange={event=>setLanguage(event.target.value as 'en'|'fr'|'ar')} className="max-w-[65%] rounded-full border border-border bg-card px-3 py-2 text-xs"><option value="en">English</option><option value="fr">Fran&#231;ais</option><option value="ar">&#1575;&#1604;&#1593;&#1585;&#1576;&#1610;&#1577;</option></select></div><button type="button" onClick={()=>setTheme(resolvedTheme==='dark'?'light':'dark')} className="flex items-center gap-2 rounded-lg px-3 py-3 text-start text-sm hover:bg-secondary">{resolvedTheme==='dark'?<Sun size={16}/>:<Moon size={16}/>} {t(resolvedTheme==='dark'?'Switch to light mode':'Switch to dark mode')}</button>{nav.map(item => <Link key={item.href} onClick={() => setOpen(false)} href={item.href} className="rounded-lg px-3 py-3 text-sm hover:bg-secondary">{item.label}</Link>)}<button type="button" onClick={() => { setOpen(false); setCartDrawerOpen(true); }} className="rounded-lg border border-border px-3 py-3 text-start text-sm flex items-center justify-between"><span>{t('Mon Panier')}</span><span className="rounded-full bg-primary px-2 py-0.5 text-xs text-primary-foreground font-semibold">{cartCount}</span></button>{user ? <button type="button" onClick={() => void signOut({ redirectUrl: window.location.origin + '/sign-in' })} className="rounded-lg bg-secondary px-3 py-3 text-start text-sm">{t('Sign out')}</button> : <Link onClick={() => setOpen(false)} href="/sign-in" className="rounded-lg bg-secondary px-3 py-3 text-start text-sm">{t('Sign in')}</Link>}</nav>}
+      <Sheet open={open} onOpenChange={setOpen}>
+        <SheetContent id="mobile-site-menu" side="left" className="flex w-[min(86vw,20rem)] max-w-none flex-col gap-0 overflow-y-auto border-e border-border bg-background p-0 text-foreground shadow-2xl lg:hidden">
+          <SheetHeader className="border-b border-border px-5 pb-5 pt-8 text-start">
+            <div className="flex items-center gap-3 pe-8">
+              <BrandMark className="h-11 w-11 rounded-xl" />
+              <span className="min-w-0"><SheetTitle className="serif text-2xl font-normal">Complexe Rouis</SheetTitle><SheetDescription className="mt-1 text-[10px] tracking-[.14em]">{t('A NEIGHBORHOOD PAUSE')}</SheetDescription></span>
+            </div>
+          </SheetHeader>
+          <div className="flex-1 px-4 py-5">
+            <p className="px-3 pb-2 text-[10px] font-medium uppercase tracking-[.16em] text-muted-foreground">{t('Navigation')}</p>
+            <nav aria-label={t('Navigation')} className="grid gap-1.5">
+              {nav.map(item => {
+                const Icon = item.href === '/' ? Home : item.href === '/services' ? Flower2 : item.href === '/policies' ? MapPin : Users;
+                const active = currentLocation === item.href;
+                return <Link key={item.href} onClick={() => setOpen(false)} href={item.href} aria-current={active ? 'page' : undefined} className={`flex min-h-12 items-center gap-3 rounded-xl px-3 text-start text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${active ? 'bg-primary/10 font-medium text-primary' : 'text-foreground/80 hover:bg-secondary hover:text-foreground'}`}><Icon size={17} className="shrink-0" aria-hidden="true"/><span className="min-w-0 flex-1">{item.label}</span>{active && <span className="h-1.5 w-1.5 rounded-full bg-primary" aria-hidden="true"/>}</Link>;
+              })}
+            </nav>
+            <div className="mt-6 border-t border-border pt-5">
+              <p className="px-3 pb-3 text-[10px] font-medium uppercase tracking-[.16em] text-muted-foreground">{t('Preferences')}</p>
+              <div className="grid gap-2">
+                <LanguageSelector id="mobile-language" className="w-full" />
+                <button type="button" onClick={()=>setTheme(resolvedTheme==='dark'?'light':'dark')} className="inline-flex min-h-11 items-center gap-3 rounded-xl px-3 text-start text-sm text-foreground/80 transition-colors hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary" aria-label={t(resolvedTheme==='dark'?'Switch to light mode':'Switch to dark mode')}>
+                  {resolvedTheme==='dark'?<Sun size={17} className="shrink-0"/>:<Moon size={17} className="shrink-0"/>}<span>{t(resolvedTheme==='dark'?'Switch to light mode':'Switch to dark mode')}</span>
+                </button>
+              </div>
+            </div>
+          </div>
+          <div className="grid gap-2 border-t border-border bg-secondary/30 p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
+            <button type="button" onClick={() => { setOpen(false); setCartDrawerOpen(true); }} className="flex min-h-12 items-center justify-between rounded-xl border border-border bg-card px-3 text-start text-sm transition-colors hover:bg-secondary"><span className="flex items-center gap-3"><ShoppingBag size={17}/>{t('Your cart')}</span><span className="grid min-h-6 min-w-6 place-items-center rounded-full bg-primary px-1.5 text-xs font-semibold text-primary-foreground">{cartCount}</span></button>
+            {user ? <button type="button" onClick={() => void signOut({ redirectUrl: window.location.origin + '/sign-in' })} className="min-h-12 rounded-xl px-3 text-start text-sm text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground">{t('Sign out')}</button> : <Link onClick={() => setOpen(false)} href="/sign-in" className="flex min-h-12 items-center rounded-xl px-3 text-sm text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground">{t('Sign in')}</Link>}
+          </div>
+        </SheetContent>
+      </Sheet>
     </header>
-    
+
     <button
       type="button"
       onClick={() => setCartDrawerOpen(true)}
       aria-label={`${t('Cart')}, ${cartCount}`}
-      title={t('Mon Panier')}
+      title={t("Your cart")}
       className={`fixed bottom-5 end-5 z-40 inline-flex h-14 items-center gap-2.5 rounded-full bg-primary px-5 text-sm font-semibold text-primary-foreground shadow-2xl hover:scale-105 transition active:scale-95 ${open || currentLocation === '/book' ? 'hidden' : ''}`}
       data-testid="link-floating-cart"
     >
       <ShoppingBag size={20}/>
-      <span>{t('Panier')}</span>
+      <span>{t("Cart")}</span>
       <span className="grid min-h-6 min-w-6 place-items-center rounded-full bg-background px-1.5 text-xs font-bold text-primary">
         {cartCount}
       </span>
@@ -351,15 +435,26 @@ export function SiteShell({ children }: { children: ReactNode }) {
     <CartDrawer open={cartDrawerOpen} onClose={() => setCartDrawerOpen(false)} />
 
     {children}
-    <footer className="bg-primary px-5 py-12 text-primary-foreground md:px-10">
-      <div className="mx-auto grid max-w-[1320px] gap-10 md:grid-cols-[1.3fr_1fr_1fr]">
-        <div><div className="serif text-4xl">{t('A little room to breathe.')}</div><p className="mt-3 max-w-sm text-sm leading-6 text-primary-foreground/70">{t('A neighborhood place to set the day down for a while.')}</p><div className="mt-5"><HealthPip/></div></div>
-        <div><p className="mono text-[10px] tracking-[.18em] text-primary-foreground/55">{t('FIND YOUR WAY')}</p><div className="mt-4 grid gap-3 text-sm"><Link href="/services">{t('Treatments')}</Link><Link href="/policies">{t('Visit information')}</Link><Link href="/privacy">{t('Privacy')}</Link><button type="button" onClick={()=>{setCookieChoice(null);setShowCookieDetails(true)}} className="w-fit text-start hover:underline">{t('Cookie settings')}</button><Link href="/admin/audit-logs">{t('Owner access')}</Link></div></div>
-        <div><p className="mono text-[10px] tracking-[.18em] text-primary-foreground/55">{t('CONTACT')}</p><p className="mt-4 text-sm">{spa?.address || 'Complexe Rouis'}<br/>{spa ? `${spa.city}, ${spa.region}` : 'Tunisie'}</p><p className="mt-3 text-sm">{spa?.contactEmail || 'contact@complexerouis.com'}</p><p className="mt-1 text-sm">{spa?.contactPhone || '+216 -- --- ---'}</p></div>
+    <footer className="border-t border-border bg-background px-5 py-12 text-foreground md:px-10 md:py-16">
+      <div className="mx-auto grid max-w-[1280px] gap-10 sm:grid-cols-2 lg:grid-cols-[1.2fr_.8fr_1fr] lg:gap-16">
+        <section aria-labelledby="footer-brand-title">
+          <div className="flex items-center gap-3"><BrandMark className="h-10 w-10 rounded-xl"/><h2 id="footer-brand-title" className="serif text-2xl">Complexe Rouis</h2></div>
+          <p className="mt-4 max-w-sm text-sm leading-6 text-muted-foreground">{t('Beauty, hair & wellness in M\'saken.')}</p>
+          <p className="mt-5 text-xs text-muted-foreground">{t('Daily')} <span aria-hidden="true">·</span> 9:00–19:00</p>
+        </section>
+        <nav aria-labelledby="footer-nav-title">
+          <h2 id="footer-nav-title" className="text-xs font-semibold">{t('Explore')}</h2>
+          <ul className="mt-4 space-y-2 text-sm"><li><Link href="/services" className="text-muted-foreground hover:text-foreground">{t('Treatments')}</Link></li><li><Link href="/book" className="text-muted-foreground hover:text-foreground">{t('Book an appointment')}</Link></li><li><Link href="/policies" className="text-muted-foreground hover:text-foreground">{t('Visit information')}</Link></li><li><Link href="/privacy" className="text-muted-foreground hover:text-foreground">{t('Privacy')}</Link></li><li><button type="button" onClick={()=>{setCookieChoice(null);setShowCookieDetails(true)}} className="min-h-11 text-muted-foreground underline-offset-4 hover:text-foreground hover:underline">{t('Cookie settings')}</button></li><li><Link href="/admin/audit-logs" className="text-muted-foreground hover:text-foreground">{t('Owner access')}</Link></li></ul>
+        </nav>
+        <section aria-labelledby="footer-contact-title">
+          <h2 id="footer-contact-title" className="text-xs font-semibold">{t('Find us')}</h2>
+          <address className="mt-4 not-italic text-sm leading-6 text-muted-foreground">Av. de l'environnement<br/>M'saken, Tunisie · PHQM+H3</address>
+          <a href="tel:+21655884366" className="mt-2 inline-flex min-h-11 items-center text-sm font-medium text-foreground underline-offset-4 hover:underline">+216 55 884 366</a>
+          <div className="mt-2 flex flex-wrap gap-x-5 gap-y-1"><FooterExternalLink href="https://maps.app.goo.gl/oKXfYfFcUZnzmea78">{t('Directions')}</FooterExternalLink><FooterExternalLink href="https://www.instagram.com/complex_rouis_de_beaute/?hl=en">Instagram</FooterExternalLink><FooterExternalLink href="https://www.facebook.com/p/complexe-rouis-desth%C3%A9tique-100089517565059/">Facebook</FooterExternalLink></div>
+        </section>
       </div>
-      <div className="mx-auto mt-10 max-w-[1320px] border-t border-primary-foreground/20 pt-5 text-[10px] text-primary-foreground/55">© Complexe Rouis d'esthétique — Tous droits réservés.</div>
-    </footer>
-    {cookieChoice === null && <section aria-label={t('Cookie consent')} aria-live="polite" className="fixed inset-x-3 bottom-3 z-[70] mx-auto max-w-3xl rounded-2xl border border-border bg-card p-5 text-card-foreground shadow-2xl sm:inset-x-6 sm:bottom-6 sm:p-6" data-testid="cookie-consent-banner"><div className="flex items-start gap-3"><span className="mt-0.5 rounded-full bg-secondary p-2 text-primary"><ShieldCheck size={18}/></span><div className="min-w-0 flex-1"><h2 className="serif text-2xl">{t('Your privacy matters')}</h2><p className="mt-2 text-sm leading-6 text-muted-foreground">{t('We use essential cookies and browser storage for sign-in, your cart, language, and booking flow. We do not currently use analytics or advertising cookies.')}</p>{showCookieDetails&&<div className="mt-3 rounded-xl bg-secondary/70 p-3 text-xs leading-5 text-muted-foreground"><p><strong className="text-foreground">{t('Essential storage')}</strong> — {t('Required for sign-in, cart, language, and booking features; always active.')}</p><p className="mt-2"><strong className="text-foreground">{t('Optional tracking')}</strong> — {t('No analytics or advertising trackers are currently enabled.')}</p><Link href="/privacy" className="mt-2 inline-block underline">{t('Read our privacy information')}</Link></div>}<div className="mt-4 flex flex-wrap items-center gap-2"><button type="button" onClick={()=>saveCookieChoice('accepted')} className="rounded-full bg-primary px-4 py-2.5 text-xs font-medium text-primary-foreground">{t('Accept all')}</button><button type="button" onClick={()=>saveCookieChoice('rejected')} className="rounded-full border border-border px-4 py-2.5 text-xs font-medium hover:bg-secondary">{t('Reject optional')}</button><button type="button" onClick={()=>setShowCookieDetails(value=>!value)} className="rounded-full px-3 py-2.5 text-xs text-muted-foreground underline underline-offset-2">{showCookieDetails?t('Hide details'):t('Cookie details')}</button></div></div></div></section>}
+      <div className="mx-auto mt-10 flex max-w-[1280px] flex-wrap items-center justify-between gap-3 border-t border-border pt-5 text-xs text-muted-foreground"><span>© Complexe Rouis d'esthétique</span><HealthPip/></div>
+    </footer>    {cookieChoice === null && <section aria-label={t('Cookie consent')} aria-live="polite" className="fixed inset-x-3 bottom-3 z-[70] mx-auto max-w-3xl rounded-2xl border border-border bg-card p-5 text-card-foreground shadow-2xl sm:inset-x-6 sm:bottom-6 sm:p-6" data-testid="cookie-consent-banner"><div className="flex items-start gap-3"><span className="mt-0.5 rounded-full bg-secondary p-2 text-primary"><ShieldCheck size={18}/></span><div className="min-w-0 flex-1"><h2 className="serif text-2xl">{t('Your privacy matters')}</h2><p className="mt-2 text-sm leading-6 text-muted-foreground">{t('We use essential cookies and browser storage for sign-in, your cart, language, and booking flow. We do not currently use analytics or advertising cookies.')}</p>{showCookieDetails&&<div className="mt-3 rounded-xl bg-secondary/70 p-3 text-xs leading-5 text-muted-foreground"><p><strong className="text-foreground">{t('Essential storage')}</strong> — {t('Required for sign-in, cart, language, and booking features; always active.')}</p><p className="mt-2"><strong className="text-foreground">{t('Optional tracking')}</strong> — {t('No analytics or advertising trackers are currently enabled.')}</p><Link href="/privacy" className="mt-2 inline-block underline">{t('Read our privacy information')}</Link></div>}<div className="mt-4 flex flex-wrap items-center gap-2"><button type="button" onClick={()=>saveCookieChoice('accepted')} className="rounded-full bg-primary px-4 py-2.5 text-xs font-medium text-primary-foreground">{t('Accept all')}</button><button type="button" onClick={()=>saveCookieChoice('rejected')} className="rounded-full border border-border px-4 py-2.5 text-xs font-medium hover:bg-secondary">{t('Reject optional')}</button><button type="button" onClick={()=>setShowCookieDetails(value=>!value)} className="rounded-full px-3 py-2.5 text-xs text-muted-foreground underline underline-offset-2">{showCookieDetails?t('Hide details'):t('Cookie details')}</button></div></div></div></section>}
   </div>;
 }
 
@@ -377,82 +472,64 @@ function DynamicServiceCard({ service }: { service: Service }) {
   const [, setLocation] = useLocation();
   const [added, setAdded] = useState(false);
 
-  const handleAddToCart = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
+  const handleAddToCart = (event: React.MouseEvent<HTMLButtonElement>) => {
+    event.preventDefault();
     addToCartHelper(service.id);
     setAdded(true);
-    setTimeout(() => setAdded(false), 2000);
+    window.setTimeout(() => setAdded(false), 2000);
   };
 
   return (
-    <div className="group flex flex-col justify-between overflow-hidden rounded-[1.4rem] border border-border/70 bg-card transition duration-300 hover:-translate-y-1 hover:shadow-lg" data-testid={`card-service-${service.id}`}>
-      <Link href={`/services/${service.slug || service.id}`} className="block">
-        <div className="relative h-48 overflow-hidden bg-secondary">
+    <article className="group flex flex-col justify-between overflow-hidden rounded-2xl border border-border bg-card transition-[border-color,box-shadow] duration-200 hover:border-primary/40 hover:shadow-md" data-testid={`card-service-${service.id}`}>
+      <Link href={`/services/${service.slug || service.id}`} aria-label={`${service.name} - ${t('See details')}`} className="block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary">
+        <div className="relative aspect-[4/3] overflow-hidden bg-secondary">
           {service.imageUrl ? (
-            <img src={service.imageUrl} alt={service.name} className="h-full w-full object-cover transition duration-500 group-hover:scale-105" />
+            <img src={service.imageUrl} alt={service.name} loading="lazy" decoding="async" className="h-full w-full object-cover transition-transform duration-500 ease-out group-hover:scale-[1.03] motion-reduce:transition-none" />
           ) : (
             <div className="absolute inset-0 grid place-items-center">
-              <div className="absolute left-[15%] top-[22%] h-28 w-28 rounded-full border border-primary/15" />
-              <div className="absolute bottom-0 right-[12%] h-36 w-36 rounded-full bg-primary/10" />
-              <Flower2 className="relative text-primary/45" size={74} strokeWidth={0.8} />
+              <Flower2 className="text-primary/45" size={64} strokeWidth={0.8} aria-hidden="true" />
             </div>
           )}
-          <span className="absolute start-4 top-4 rounded-full bg-background/85 px-3 py-1.5 text-[10px] tracking-[.12em] backdrop-blur">
+          <span className="absolute start-4 top-4 rounded-full bg-background/90 px-3 py-1.5 text-xs text-foreground">
             {service.category}
           </span>
           {service.isFeatured && (
-            <span className="absolute end-4 top-4 rounded-full bg-primary px-3 py-1.5 text-[10px] tracking-[.1em] text-primary-foreground">
+            <span className="absolute end-4 top-4 rounded-full bg-primary px-3 py-1.5 text-xs text-primary-foreground">
               {t('FEATURED')}
             </span>
           )}
         </div>
-        <div className="p-5">
+        <div className="p-5 pb-4">
           <div className="flex items-start justify-between gap-3">
-            <h3 className="serif text-[22px] leading-tight group-hover:text-primary transition">{service.name}</h3>
-            <ArrowUpRight size={18} className="mt-1 shrink-0 text-muted-foreground transition group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-primary" />
+            <h3 className="serif text-[22px] leading-tight transition-colors duration-200 group-hover:text-primary">{service.name}</h3>
+            <ArrowUpRight size={18} aria-hidden="true" className="mt-1 shrink-0 text-muted-foreground transition-transform duration-200 group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
           </div>
           {service.shortDescription && (
-            <p className="mt-2 text-xs leading-5 text-muted-foreground line-clamp-2">
-              {service.shortDescription}
-            </p>
+            <p className="mt-2 text-sm leading-6 text-muted-foreground line-clamp-2">{service.shortDescription}</p>
           )}
         </div>
       </Link>
       <div className="px-5 pb-5 pt-0">
-        <div className="flex items-center justify-between border-t border-border/70 pt-4 text-xs gap-2">
+        <div className="flex items-end justify-between gap-3 border-t border-border pt-4">
           <div className="flex flex-col">
-            <span className="flex flex-col items-start"><span className="font-semibold text-primary text-sm">{formatMoney(service.priceAmount, service.currency)}</span>{service.discountPercent>0&&<span className="text-[10px]"><del className="me-1 text-muted-foreground">{formatMoney(service.originalPriceAmount,service.currency)}</del><span className="font-semibold text-destructive">-{service.discountPercent}%</span></span>}</span>
-            <span className="text-[10px] text-muted-foreground">{service.durationMinutes} min</span>
+            <span className="font-semibold text-foreground">{formatMoney(service.priceAmount, service.currency)}</span>
+            {service.discountPercent > 0 && <span className="text-xs"><del className="me-1 text-muted-foreground">{formatMoney(service.originalPriceAmount, service.currency)}</del><span className="font-semibold text-destructive">-{service.discountPercent}%</span></span>}
+            <span className="mt-1 text-xs text-muted-foreground">{service.durationMinutes} min</span>
           </div>
-          <div className="flex items-center gap-1.5">
-            <button
-              type="button"
-              onClick={handleAddToCart}
-              title={t('Ajouter au panier')}
-              className={`inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-medium transition ${
-                added
-                  ? 'bg-emerald-600 text-white shadow-sm'
-                  : 'border border-primary/35 bg-primary/5 hover:bg-primary/15 text-primary'
-              }`}
-            >
-              {added ? <Check size={12} /> : <Plus size={12} />}
-              <span>{added ? t('Ajouté !') : t('+ Panier')}</span>
+          <div className="flex items-center gap-2">
+            <button type="button" onClick={handleAddToCart} aria-label={added ? t('Added to cart') : t('Add to cart')} className={`inline-flex min-h-11 min-w-11 items-center justify-center gap-1.5 rounded-full border px-3 text-xs font-medium transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${added ? 'border-emerald-700 bg-emerald-700 text-white' : 'border-border text-foreground hover:border-primary hover:text-primary'}`}>
+              {added ? <Check size={15} aria-hidden="true" /> : <Plus size={15} aria-hidden="true" />}
+              <span className="hidden sm:inline">{added ? t('Added') : t('Add')}</span>
             </button>
-            <button
-              type="button"
-              onClick={() => setLocation(`/book?service=${service.id}`)}
-              className="inline-flex items-center gap-1 rounded-full bg-primary hover:opacity-90 px-3.5 py-1.5 text-xs font-medium text-primary-foreground transition shadow-sm"
-            >
-              {t('Book')} <ArrowRight size={12} />
+            <button type="button" onClick={() => setLocation(`/book?service=${service.id}`)} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-primary px-4 text-xs font-semibold text-primary-foreground transition-colors duration-200 hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent">
+              {t('Book')} <ArrowRight size={14} aria-hidden="true" />
             </button>
           </div>
         </div>
       </div>
-    </div>
+    </article>
   );
 }
-
 function formatMoney(amount: number, currency: string) {
   return formatMoneyDT(amount, currency);
 }
@@ -519,29 +596,34 @@ export function HomePage() {
   const services = useListServices();
   const refresh = () => { void profile.refetch(); void services.refetch(); };
   return <><Meta title="A neighborhood pause" description="Explore thoughtful spa treatments and find a time that works for you."/><main className="page-enter">
-    <section className="relative mx-auto max-w-[1440px] overflow-hidden px-5 py-12 md:px-10 md:py-16">
-      <div className="grid min-h-[560px] items-center gap-8 lg:grid-cols-[.88fr_1.12fr]">
-        <div className="relative z-10 py-5 lg:ps-8"><p className="mono text-[10px] tracking-[.22em] text-primary">{t('YOUR NEIGHBORHOOD RESET')}</p><h1 className="serif mt-7 max-w-[560px] text-[62px] leading-[.93] md:text-[86px]">{t('Make a little')}<br/>{t('room for')} <em>{t('you.')}</em></h1><p className="mt-7 max-w-[420px] text-[15px] leading-7 text-muted-foreground">{t('A considered pause in the middle of everything. Choose a treatment, find a time, and let the outside world wait a moment.')}</p><div className="mt-8 flex flex-wrap gap-3"><Link href="/book" className="rounded-full bg-primary px-6 py-4 text-sm font-medium text-primary-foreground transition hover:-translate-y-0.5" data-testid="link-hero-book">{t('Book your visit')} <ArrowRight className="ms-3 inline" size={15}/></Link><Link href="/services" className="rounded-full border border-border px-6 py-4 text-sm transition hover:bg-secondary" data-testid="link-explore-services">{t('Explore treatments')}</Link></div><div className="mt-12 flex items-center gap-3 text-xs text-muted-foreground"><span className="h-px w-10 bg-accent-foreground/30"/>{profile.data?.tagline || t('A calm place, close to home')}</div></div>
-        <div className="relative min-h-[360px] md:min-h-[540px]">
-          <div className="absolute inset-0 overflow-hidden rounded-[42%_42%_2rem_2rem] bg-secondary">
-            <img className="h-full w-full object-cover" src="/spa-courtyard.png" alt="A quiet, sunlit spa courtyard with leafy shadows and natural stone"/>
-            <div className="absolute inset-0 bg-gradient-to-t from-primary/25 via-transparent to-transparent"/>
-          </div>
-          <div className="absolute -bottom-3 start-0 max-w-[225px] rounded-2xl bg-card p-4 shadow-lg md:bottom-8 md:-start-8"><p className="mono text-[9px] tracking-[.16em] text-primary">{t('THE STILLROOM WAY')}</p><p className="serif mt-2 text-[21px] leading-6">{t('A slower hour can change the shape of a day.')}</p></div>
-          <div className="absolute right-4 top-8 grid h-20 w-20 place-items-center rounded-full border border-background/70 bg-background/80 text-center backdrop-blur"><span className="mono text-[9px] leading-4 tracking-[.13em]">{t('PAUSE')}<br/>{t('HERE')}</span></div>
+    <section aria-labelledby="home-hero-title" className="mx-auto max-w-[1360px] px-5 py-10 md:px-10 md:py-14">
+      <div className="grid items-center gap-8 lg:grid-cols-[.82fr_1.18fr] lg:gap-14">
+        <div className="max-w-xl py-4 lg:py-12">
+          <p className="text-xs font-medium uppercase tracking-[.18em] text-primary">{t('COMPLEXE ROUIS · BEAUTY & WELLNESS')} · M&apos;saken</p>
+          <h1 id="home-hero-title" className="serif mt-5 text-5xl leading-[1.04] sm:text-6xl md:text-7xl">{t('Beauty, care,')}<br/><em>{t('close to you.')}</em></h1>
+          <p className="mt-6 max-w-md text-base leading-7 text-muted-foreground">{t('A bright space, a caring team, and beauty, hair, and wellness treatments. Explore the menu and choose what feels right for you.')}</p>
+          <div className="mt-8 flex flex-wrap items-center gap-3"><Link href="/book" className="inline-flex min-h-12 items-center gap-3 rounded-lg bg-primary px-5 py-3 text-sm font-semibold text-primary-foreground transition-colors duration-200 hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent" data-testid="link-hero-book">{t('Book an appointment')} <ArrowRight size={16} aria-hidden="true"/></Link><Link href="/services" className="inline-flex min-h-12 items-center px-3 text-sm text-foreground underline decoration-border underline-offset-4 transition-colors duration-200 hover:decoration-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent" data-testid="link-explore-services">{t('Explore services')}</Link></div>
+          <div className="mt-9 flex flex-wrap gap-x-6 gap-y-2 border-t border-border pt-5 text-sm text-muted-foreground"><span>{t('Av. de l’environnement, M’saken')}</span><span>{t('Every day')} · 9:00–19:00</span></div>
+        </div>
+        <div className="relative grid min-h-[370px] grid-cols-[1.1fr_.9fr] gap-3 sm:min-h-[500px] sm:gap-4">
+          <figure className="relative min-h-[370px] overflow-hidden rounded-xl bg-secondary sm:min-h-[500px]"><img src="/complexe-rouis-stairs.jpg" alt={t('Stone staircase and glass railing in the bright Complexe Rouis interior')} width="911" height="2048" fetchPriority="high" decoding="async" className="absolute inset-0 h-full w-full object-cover object-center"/><figcaption className="absolute bottom-3 start-3 bg-background/90 px-3 py-2 text-[11px] text-foreground">Complexe Rouis · M&apos;saken</figcaption></figure>
+          <figure className="relative mb-10 mt-10 min-h-[320px] overflow-hidden rounded-xl bg-secondary sm:mb-14 sm:mt-14 sm:min-h-[430px]"><img src="/complexe-rouis-chandelier.jpg" alt={t('Golden chandelier in the Complexe Rouis reception area')} width="923" height="2048" loading="lazy" decoding="async" className="absolute inset-0 h-full w-full object-cover object-center"/><figcaption className="absolute bottom-3 start-3 bg-background/90 px-3 py-2 text-[11px] text-foreground">{t('Beauty & wellness')}</figcaption></figure>
         </div>
       </div>
     </section>
-    <section className="mx-auto max-w-[1320px] px-5 py-20 md:px-10 md:py-28">
-      <div className="flex flex-col justify-between gap-6 md:flex-row md:items-end"><div><p className="mono text-[10px] tracking-[.2em] text-primary">{t('A GOOD PLACE TO BEGIN')}</p><h2 className="serif mt-3 text-5xl md:text-6xl">{t('Time that feels like yours.')}</h2></div><Link href="/services" className="text-sm underline decoration-border underline-offset-4 hover:decoration-primary">{t('See every treatment')} <ArrowRight className="ms-2 inline" size={14}/></Link></div>
+    <section aria-labelledby="featured-treatments-title" className="mx-auto max-w-[1320px] px-5 py-20 md:px-10 md:py-28">
+      <div className="flex flex-col justify-between gap-6 md:flex-row md:items-end"><div><p className="mono text-[10px] tracking-[.2em] text-primary">{t('A GOOD PLACE TO BEGIN')}</p><h2 id="featured-treatments-title" className="serif mt-3 text-5xl md:text-6xl">{t('Time that feels like yours.')}</h2></div><Link href="/services" className="text-sm underline decoration-border underline-offset-4 hover:decoration-primary">{t('See every treatment')} <ArrowRight className="ms-2 inline" size={14}/></Link></div>
       <div className="mt-10 grid gap-5 md:grid-cols-2 lg:grid-cols-3">
         {services.isLoading ? (
           <LoadingBlock label="Loading treatments" />
+        ) : services.isError ? (
+          <ErrorBlock retry={() => void services.refetch()} />
         ) : (
           (Array.isArray(services.data) ? services.data.filter(s => s.isFeatured).slice(0, 6) : []).map(s => (
             <DynamicServiceCard key={s.id} service={s} />
           ))
         )}
+        {!services.isLoading && !services.isError && Array.isArray(services.data) && services.data.length === 0 && <p className="text-sm text-muted-foreground">{t('The menu is taking shape.')}</p>}
       </div>
     </section>
     <section className="bg-secondary px-5 py-20 md:px-10 md:py-28"><div className="mx-auto grid max-w-[1320px] items-center gap-10 md:grid-cols-[.8fr_1.2fr]"><div className="rounded-[2rem] bg-card p-8 md:min-h-[360px] md:p-12"><div className="flex h-full min-h-[260px] flex-col justify-between rounded-[1.5rem] border border-primary/15 p-6"><Sparkles size={28} className="text-primary"/><p className="serif max-w-md text-4xl leading-[1.05]">Thoughtfully simple, from hello to see-you-soon.</p><p className="mono text-[9px] tracking-[.17em] text-primary">THE VISIT, AT YOUR PACE</p></div></div><div className="md:ps-10"><p className="mono text-[10px] tracking-[.2em] text-primary">YOUR TIME, YOUR WAY</p><h2 className="serif mt-4 max-w-xl text-5xl leading-[.98] md:text-6xl">A softer rhythm starts before you arrive.</h2><p className="mt-6 max-w-lg text-sm leading-7 text-muted-foreground">Browse what feels right, book without creating an account, and arrive knowing what to expect. Simple, clear, and made around your day.</p><div className="mt-8 grid gap-5 sm:grid-cols-2"><div className="flex gap-3"><CalendarDays className="mt-1 shrink-0 text-primary" size={20}/><div><p className="font-medium">Find a time online</p><p className="mt-1 text-xs leading-5 text-muted-foreground">Availability updates from our live schedule.</p></div></div><div className="flex gap-3"><HeartHandshake className="mt-1 shrink-0 text-primary" size={20}/><div><p className="font-medium">A warm welcome</p><p className="mt-1 text-xs leading-5 text-muted-foreground">Share a note for the team when you book.</p></div></div></div><Link href="/book" className="mt-8 inline-flex items-center rounded-full bg-primary px-6 py-4 text-sm text-primary-foreground">Plan a visit <ArrowRight className="ms-3" size={15}/></Link></div></div></section>
@@ -553,6 +635,24 @@ export function ServicesPage() {
   const { t } = useLanguage();
   const services = useListServices();
   const [filter, setFilter] = useState<string>('Tout');
+  const [showCategoryCue, setShowCategoryCue] = useState(true);
+  const [hasScrolledCategories, setHasScrolledCategories] = useState(false);
+  const categoryStripRef = useRef<HTMLDivElement>(null);
+
+  const updateCategoryCue = () => {
+    const strip = categoryStripRef.current;
+    if (!strip) return;
+    const canScroll = strip.scrollWidth > strip.clientWidth + 2;
+    const atEnd = strip.scrollLeft + strip.clientWidth >= strip.scrollWidth - 4;
+    setShowCategoryCue(canScroll && !atEnd);
+    setHasScrolledCategories(strip.scrollLeft > 2);
+  };
+
+  const scrollCategoriesForward = () => {
+    const strip = categoryStripRef.current;
+    if (!strip) return;
+    strip.scrollBy({ left: strip.clientWidth * 0.75, behavior: 'smooth' });
+  };
 
   const allCategories = useMemo(() => {
     const list = Array.isArray(services.data) ? services.data.map(s => s.category).filter(Boolean) : [];
@@ -574,28 +674,38 @@ export function ServicesPage() {
           title={t('Find your kind of pause.')}
           text={t('Each visit has its own pace. Explore the current menu, and choose the time that works for you.')}
         />
-        <div className="mt-10 flex gap-2 overflow-x-auto pb-2 scrollbar-hide" role="tablist" aria-label={t('Treatments')}>
+        <div className="relative mt-10">
+          <div ref={categoryStripRef} onScroll={updateCategoryCue} onKeyUp={updateCategoryCue} className="flex snap-x snap-mandatory gap-2 overflow-x-auto overscroll-x-contain px-3 pb-3 pe-12 scrollbar-hide" role="group" aria-label={t('Filter treatments by category')}>
           {allCategories.map(c => (
             <button
               key={c}
-              role="tab"
-              aria-selected={filter === c}
+              type="button"
+              aria-pressed={filter === c}
               onClick={() => setFilter(c)}
-              className={`shrink-0 rounded-full px-4 py-2.5 text-xs transition ${
-                filter === c ? 'bg-primary text-primary-foreground' : 'border border-border bg-card hover:bg-secondary'
+              className={`min-h-11 shrink-0 snap-start rounded-full border px-5 text-sm transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
+                filter === c ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-card text-foreground hover:border-primary/60'
               }`}
               data-testid={`filter-${c.toLowerCase().replaceAll(' ', '-').replaceAll('&', '-')}`}
             >
               {c === 'Tout' ? t('All') : t(c)}
             </button>
           ))}
+          </div>
+          <div className={`absolute inset-y-0 end-0 z-10 flex w-14 items-center justify-center bg-gradient-to-l from-background via-background/80 to-transparent transition-opacity duration-200 ${showCategoryCue ? 'opacity-100' : 'pointer-events-none opacity-0'}`}>
+            <button type="button" onClick={scrollCategoriesForward} aria-label={t('Scroll to more treatment categories')} className="inline-flex min-h-11 min-w-11 items-center justify-center text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
+              <ArrowRight size={18} aria-hidden="true" className="animate-[category-nudge_1.4s_ease-in-out_infinite] motion-reduce:animate-none" />
+            </button>
+          </div>
+          <div className={`flex items-center justify-end gap-2 pt-1 text-xs text-muted-foreground transition-opacity duration-200 sm:hidden ${showCategoryCue ? 'opacity-100' : 'opacity-0'}`} aria-hidden="true">
+            <span>{t('Scroll to explore')}</span>
+          </div>
         </div>
         {services.isLoading ? (
           <LoadingBlock label="Loading treatments" />
         ) : services.isError ? (
           <ErrorBlock retry={() => void services.refetch()} />
         ) : items.length ? (
-          <div className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-3" aria-live="polite">
             {items.map(s => (
               <DynamicServiceCard key={s.id} service={s} />
             ))}
@@ -620,7 +730,7 @@ export function ServiceDetailPage({ slug }: { slug: string }) {
 
   return (
     <>
-      <Meta title={s?.name || 'Treatment details'} description={s?.shortDescription || 'Treatment information and booking details.'} />
+      <Meta title={s?.name || 'Treatment details'} description={s?.shortDescription || 'Treatment information and booking details.'} noindex={!s} />
       <main className="page-enter mx-auto max-w-[1320px] px-5 py-8 md:px-10 md:py-12">
         <Link href="/services" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-primary">
           <ChevronLeft size={16} /> {t('All treatments')}
@@ -633,7 +743,7 @@ export function ServiceDetailPage({ slug }: { slug: string }) {
           <div className="mt-6 grid gap-10 lg:grid-cols-[1.1fr_.9fr]">
             <div className="relative min-h-[370px] overflow-hidden rounded-[2rem] bg-secondary md:min-h-[590px]">
               {s.imageUrl ? (
-                <img src={s.imageUrl} alt="" className="h-full w-full object-cover" />
+                <img src={s.imageUrl} alt={s.name} decoding="async" fetchPriority="high" className="h-full w-full object-cover" />
               ) : (
                 <div className="grid h-full min-h-[370px] place-items-center">
                   <Flower2 size={100} className="text-primary/40" strokeWidth={0.8} />
@@ -668,14 +778,14 @@ export function ServiceDetailPage({ slug }: { slug: string }) {
                   className="inline-flex w-full sm:w-auto flex-1 items-center justify-center gap-2 rounded-full border border-primary/40 bg-primary/5 hover:bg-primary/15 px-6 py-4 text-sm font-medium text-primary transition"
                 >
                   <ShoppingBag size={17} />
-                  <span>{t('Ajouter au panier')}</span>
+                  <span>{t("Add to cart")}</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => setLocation(`/book?service=${s.id}`)}
                   className="inline-flex w-full sm:w-auto flex-1 items-center justify-center gap-2 rounded-full bg-primary px-6 py-4 text-sm font-medium text-primary-foreground shadow-md hover:opacity-95 transition"
                 >
-                  <span>{t('Réserver maintenant')}</span>
+                  <span>{t("Book now")}</span>
                   <ArrowRight size={16} />
                 </button>
               </div>
@@ -851,15 +961,15 @@ export function BookingPage() {
         <section><StepLabel n="03" text="Your details"/><div className="mt-4 grid gap-4 sm:grid-cols-2"><label className="grid gap-2 text-xs">{t('Full name')}<input required minLength={2} maxLength={120} value={name} onChange={event=>setName(event.target.value)} autoComplete="name" className="rounded-xl border border-input bg-background px-4 py-3 text-sm" data-testid="input-booking-name"/></label><label className="grid gap-2 text-xs">{t('Email address')}<input required type="email" maxLength={254} value={email} onChange={event=>setEmail(event.target.value)} autoComplete="email" className="rounded-xl border border-input bg-background px-4 py-3 text-sm" data-testid="input-booking-email"/></label><label className="grid gap-2 text-xs">{t('Phone number')}<input required type="tel" minLength={7} maxLength={40} value={phone} onChange={event=>setPhone(event.target.value)} autoComplete="tel" className="rounded-xl border border-input bg-background px-4 py-3 text-sm" data-testid="input-booking-phone"/></label><label className="grid gap-2 text-xs">{t('A note for our team')} <span className="text-muted-foreground">{t('(optional)')}</span><input maxLength={1000} value={note} onChange={event=>setNote(event.target.value)} className="rounded-xl border border-input bg-background px-4 py-3 text-sm" data-testid="input-booking-note"/></label></div></section>
         <section className="rounded-xl bg-secondary/70 p-4"><label className="flex cursor-pointer items-start gap-3 text-xs leading-5"><input type="checkbox" checked={accepted} onChange={event=>setAccepted(event.target.checked)} className="mt-1 accent-primary" data-testid="checkbox-policy-accept"/><span>{t('I have read and accept the')} <Link className="underline" href="/policies">{t('visit and cancellation policy')}</Link>. {t('Current policy details are demo/setup placeholders.')}</span></label></section>
         {formError&&<p className="rounded-xl border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive" role="alert" data-testid="status-booking-error">{formError}</p>}
-        <button disabled={submitting||cartServices.length===0} className="flex w-full items-center justify-center gap-2 rounded-full bg-primary px-6 py-4 text-sm font-medium text-primary-foreground disabled:opacity-60" data-testid="button-submit-booking">{submitting?<><LoaderCircle className="animate-spin" size={17}/>{t('Checking and booking?')}</>:<>{t('Reserve cart')} <ArrowRight size={16}/></>}</button>
+        <button disabled={submitting||cartServices.length===0} className="flex w-full items-center justify-center gap-2 rounded-full bg-primary px-6 py-4 text-sm font-medium text-primary-foreground disabled:opacity-60" data-testid="button-submit-booking">{submitting?<><LoaderCircle className="animate-spin" size={17}/>{t('Checking and booking…')}</>:<>{t('Reserve cart')} <ArrowRight size={16}/></>}</button>
       </form>
-      <aside className="h-fit max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain rounded-[1.5rem] bg-secondary p-5 sm:p-6 lg:sticky lg:top-28 lg:max-h-[calc(100dvh-8rem)]"><p className="mono text-[9px] tracking-[.2em] text-primary">{t('YOUR VISIT')}</p><h2 className="serif mt-3 text-3xl">{t('Reservation summary')}</h2>{cartServices.length?<div className="mt-5 border-t border-primary/15 pt-4 text-sm"><ul className="max-h-[24dvh] space-y-3 overflow-y-auto overscroll-contain">{cartServices.map(service=><li key={service.id} className="flex justify-between gap-3"><span className="min-w-0 break-words">{service.name}</span><span className="shrink-0 whitespace-nowrap">{service.discountPercent>0&&<><del className="me-1 text-muted-foreground">{formatMoney(service.originalPriceAmount,service.currency)}</del><span className="me-1 text-destructive">-{service.discountPercent}%</span></>}{formatMoney(service.priceAmount,service.currency)}</span></li>)}</ul><div className="mt-4 flex justify-between border-t border-primary/15 pt-4"><span className="text-muted-foreground">{t('Treatment time')}</span><span>{totalServiceDuration} min</span></div><div className="flex justify-between py-2 font-medium"><span>{t('Total')}</span><span>{formatMoney(totalPrice,currency)}</span></div><div className="flex justify-between py-2"><span className="text-muted-foreground">{t('Date')}</span><span>{date?new Date(`${date}T12:00:00`).toLocaleDateString(undefined,{month:'short',day:'numeric'}):t('Choose a date')}</span></div><div className="flex justify-between py-2"><span className="text-muted-foreground">{t('Time')}</span><span>{cartQuery.data?.find(item=>item.startsAt===slot)?.label||t('Choose a time')}</span></div></div>:<p className="mt-2 text-sm leading-6 text-muted-foreground">{t('Your cart is empty. Add one or more treatments to continue.')}</p>}{cartServices.length > 1 && <p className="mt-2 text-xs text-muted-foreground">{t('Includes the required space between treatments.')}</p>}<div className="mt-6 border-t border-primary/15 pt-4"><div className="flex gap-3"><ShieldCheck className="shrink-0 text-primary" size={18}/><p className="text-xs leading-5 text-muted-foreground">{t('No account needed. Your request is checked against live availability when you confirm.')}</p></div><p className="mt-4 text-[10px] leading-4 text-muted-foreground">{profile.data?.cancellationPolicy||t('Cancellation policy is a demo/setup placeholder.')}</p></div></aside>
+      <aside className="h-fit max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain rounded-[1.5rem] bg-secondary p-5 sm:p-6 lg:sticky lg:top-28 lg:max-h-[calc(100dvh-8rem)]"><p className="mono text-[9px] tracking-[.2em] text-primary">{t('YOUR VISIT')}</p><h2 className="serif mt-3 text-3xl">{t('Reservation summary')}</h2>{cartServices.length?<div className="mt-5 border-t border-primary/15 pt-4 text-sm"><ul className="max-h-[24dvh] space-y-3 overflow-y-auto overscroll-contain">{cartServices.map(service=><li key={service.id} className="flex justify-between gap-3"><span className="min-w-0 break-words">{service.name}</span><span className="shrink-0 whitespace-nowrap">{service.discountPercent>0&&<><del className="me-1 text-muted-foreground">{formatMoney(service.originalPriceAmount,service.currency)}</del><span className="me-1 text-destructive">-{service.discountPercent}%</span></>}{formatMoney(service.priceAmount,service.currency)}</span></li>)}</ul><div className="mt-4 flex justify-between border-t border-primary/15 pt-4"><span className="text-muted-foreground">{t('Treatment time')}</span><span>{totalServiceDuration} min</span></div><div className="flex justify-between py-2 font-medium"><span>{t('Total')}</span><span>{formatMoney(totalPrice,currency)}</span></div><div className="flex justify-between py-2"><span className="text-muted-foreground">{t('Date')}</span><span>{date?new Date(`${date}T12:00:00`).toLocaleDateString(getIntlLocale(language),{month:'short',day:'numeric'}):t('Choose a date')}</span></div><div className="flex justify-between py-2"><span className="text-muted-foreground">{t('Time')}</span><span>{cartQuery.data?.find(item=>item.startsAt===slot)?.label||t('Choose a time')}</span></div></div>:<p className="mt-2 text-sm leading-6 text-muted-foreground">{t('Your cart is empty. Add one or more treatments to continue.')}</p>}{cartServices.length > 1 && <p className="mt-2 text-xs text-muted-foreground">{t('Includes the required space between treatments.')}</p>}<div className="mt-6 border-t border-primary/15 pt-4"><div className="flex gap-3"><ShieldCheck className="shrink-0 text-primary" size={18}/><p className="text-xs leading-5 text-muted-foreground">{t('No account needed. Your request is checked against live availability when you confirm.')}</p></div><p className="mt-4 text-[10px] leading-4 text-muted-foreground">{profile.data?.cancellationPolicy||t('Cancellation policy is a demo/setup placeholder.')}</p></div></aside>
     </div></main></>;
 }
 
 export function AccountPage() {
   const { user } = useUser();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [tab, setTab] = useState<'profile' | 'history'>('profile');
   useEffect(() => {
     if (!user) return;
@@ -869,8 +979,7 @@ export function AccountPage() {
   const bookings = readStoredBookingHistory();
   const upcoming = bookings.filter(item => new Date(item.startsAt).getTime() >= Date.now()).sort((a, b) => new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime());
   const previous = bookings.filter(item => new Date(item.startsAt).getTime() < Date.now()).sort((a, b) => new Date(b.startsAt).getTime() - new Date(a.startsAt).getTime());
-
-  return <><Meta title="Your account" description="Your saved spa details and booking history."/><main className="page-enter mx-auto max-w-[1200px] px-5 py-12 md:px-10 md:py-16"><div className="mb-8 flex flex-col gap-4 md:flex-row md:items-end md:justify-between"><div><p className="mono text-[10px] tracking-[.2em] text-primary">YOUR ACCOUNT</p><h1 className="serif mt-3 text-5xl md:text-6xl">{t('Welcome back')}{user?.firstName ? `, ${user.firstName}` : ''}.</h1></div><div className="flex gap-2 rounded-full border border-border bg-card p-1"><button type="button" onClick={() => setTab('profile')} className={`rounded-full px-4 py-2 text-xs ${tab === 'profile' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground'}`}>{t('Profile')}</button><button type="button" onClick={() => setTab('history')} className={`rounded-full px-4 py-2 text-xs ${tab === 'history' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground'}`}>{t('History')}</button></div></div>{tab === 'profile' ? <div className="grid gap-6 lg:grid-cols-[1fr_1.4fr]"><section className="rounded-[1.5rem] border border-border bg-card p-6"><h2 className="serif text-3xl">{t('Saved details')}</h2><div className="mt-5 space-y-4 text-sm"><div><p className="text-muted-foreground">Name</p><p className="mt-1 font-medium">{profile.name || user?.fullName || 'Not saved yet'}</p></div><div><p className="text-muted-foreground">Email</p><p className="mt-1 font-medium">{profile.email || user?.primaryEmailAddress?.emailAddress || 'Not saved yet'}</p></div><div><p className="text-muted-foreground">Phone</p><p className="mt-1 font-medium">{profile.phone || user?.phoneNumbers?.[0]?.phoneNumber || 'Not saved yet'}</p></div></div></section><section className="rounded-[1.5rem] border border-border bg-card p-6"><h2 className="serif text-3xl">{t('Quick actions')}</h2><div className="mt-5 grid gap-3 sm:grid-cols-2"><Link href="/book" className="rounded-2xl bg-secondary px-4 py-5 text-start hover:bg-secondary/80"><p className="mono text-[9px] tracking-[.16em] text-primary">BOOK</p><p className="serif mt-2 text-2xl">{t('New visit')}</p></Link><Link href="/services" className="rounded-2xl bg-secondary px-4 py-5 text-start hover:bg-secondary/80"><p className="mono text-[9px] tracking-[.16em] text-primary">EXPLORE</p><p className="serif mt-2 text-2xl">{t('Treatments')}</p></Link></div><p className="mt-6 text-sm leading-6 text-muted-foreground">Your contact details are remembered automatically after you book, and they will be reused the next time you choose a treatment.</p></section></div> : <section className="rounded-[1.5rem] border border-border bg-card p-6"><h2 className="serif text-3xl">{t('Booking history')}</h2>{bookings.length === 0 ? <div className="mt-6 rounded-2xl border border-dashed border-border p-8 text-center text-sm text-muted-foreground">{t('No bookings yet. Your upcoming and past appointments will appear here once you book a visit.')}</div> : <div className="mt-6 grid gap-4"><div><h3 className="mono text-[9px] tracking-[.2em] text-primary">UPCOMING</h3>{upcoming.length ? <div className="mt-3 space-y-3">{upcoming.map(item => <div key={item.id} className="rounded-2xl border border-border bg-secondary/40 p-4"><div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between"><div><p className="font-medium">{item.serviceName}</p><p className="mt-1 text-xs text-muted-foreground">{new Date(item.startsAt).toLocaleString(undefined,{month:'short',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit'})}</p></div><div className="flex items-center gap-3"><span className="rounded-full bg-primary/10 px-2 py-1 text-[10px] uppercase tracking-[.12em] text-primary">{item.status}</span><span className="text-sm font-medium">{formatMoney(item.priceAmount, item.currency)}</span></div></div></div>)}</div> : <p className="mt-3 text-sm text-muted-foreground">No upcoming appointments.</p>}</div><div className="mt-6"><h3 className="mono text-[9px] tracking-[.2em] text-primary">PAST</h3>{previous.length ? <div className="mt-3 space-y-3">{previous.map(item => <div key={item.id} className="rounded-2xl border border-border bg-muted/40 p-4"><div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between"><div><p className="font-medium">{item.serviceName}</p><p className="mt-1 text-xs text-muted-foreground">{new Date(item.startsAt).toLocaleString(undefined,{month:'short',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit'})}</p></div><div className="flex items-center gap-3"><span className="rounded-full bg-secondary px-2 py-1 text-[10px] uppercase tracking-[.12em] text-foreground">{item.status}</span><span className="text-sm font-medium">{formatMoney(item.priceAmount, item.currency)}</span></div></div></div>)}</div> : <p className="mt-3 text-sm text-muted-foreground">No past appointments yet.</p>}</div></div>}</section>}</main></>;
+  return <><Meta title={t('Your account')} description={t('Your saved spa details and booking history.')} /><main className="page-enter mx-auto max-w-[1200px] px-5 py-12 md:px-10 md:py-16"><div className="mb-8 flex flex-col gap-4 md:flex-row md:items-end md:justify-between"><div><p className="mono text-[10px] tracking-[.2em] text-primary">{t('YOUR ACCOUNT')}</p><h1 className="serif mt-3 text-5xl md:text-6xl">{t('Welcome back')}{user?.firstName ? `, ${user.firstName}` : ''}.</h1></div><div className="flex gap-2 rounded-full border border-border bg-card p-1"><button type="button" onClick={() => setTab('profile')} className={`rounded-full px-4 py-2 text-xs ${tab === 'profile' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground'}`}>{t('Profile')}</button><button type="button" onClick={() => setTab('history')} className={`rounded-full px-4 py-2 text-xs ${tab === 'history' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground'}`}>{t('History')}</button></div></div>{tab === 'profile' ? <div className="grid gap-6 lg:grid-cols-[1fr_1.4fr]"><section className="rounded-[1.5rem] border border-border bg-card p-6"><h2 className="serif text-3xl">{t('Saved details')}</h2><div className="mt-5 space-y-4 text-sm"><div><p className="text-muted-foreground">{t('Name')}</p><p className="mt-1 font-medium">{profile.name || user?.fullName || t('Not saved yet')}</p></div><div><p className="text-muted-foreground">{t('Email')}</p><p className="mt-1 font-medium">{profile.email || user?.primaryEmailAddress?.emailAddress || t('Not saved yet')}</p></div><div><p className="text-muted-foreground">{t('Phone')}</p><p className="mt-1 font-medium">{profile.phone || user?.phoneNumbers?.[0]?.phoneNumber || t('Not saved yet')}</p></div></div></section><section className="rounded-[1.5rem] border border-border bg-card p-6"><h2 className="serif text-3xl">{t('Quick actions')}</h2><div className="mt-5 grid gap-3 sm:grid-cols-2"><Link href="/book" className="rounded-2xl bg-secondary px-4 py-5 text-start hover:bg-secondary/80"><p className="mono text-[9px] tracking-[.16em] text-primary">{t('BOOK')}</p><p className="serif mt-2 text-2xl">{t('New visit')}</p></Link><Link href="/services" className="rounded-2xl bg-secondary px-4 py-5 text-start hover:bg-secondary/80"><p className="mono text-[9px] tracking-[.16em] text-primary">{t('EXPLORE')}</p><p className="serif mt-2 text-2xl">{t('Treatments')}</p></Link></div><p className="mt-6 text-sm leading-6 text-muted-foreground">{t('Your contact details are remembered automatically after you book, and they will be reused the next time you choose a treatment.')}</p></section></div> : <section className="rounded-[1.5rem] border border-border bg-card p-6"><h2 className="serif text-3xl">{t('Booking history')}</h2>{bookings.length === 0 ? <div className="mt-6 rounded-2xl border border-dashed border-border p-8 text-center text-sm text-muted-foreground">{t('No bookings yet. Your upcoming and past appointments will appear here once you book a visit.')}</div> : <div className="mt-6 grid gap-4">{[[t('UPCOMING'), upcoming],[t('PAST'), previous]].map(([label, items]) => <div key={String(label)}><h3 className="mono text-[9px] tracking-[.2em] text-primary">{String(label)}</h3>{(items as typeof bookings).length ? <div className="mt-3 space-y-3">{(items as typeof bookings).map(item => <div key={item.id} className="rounded-2xl border border-border bg-secondary/40 p-4"><div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between"><div><p className="font-medium">{item.serviceName}</p><p className="mt-1 text-xs text-muted-foreground">{new Date(item.startsAt).toLocaleString(getIntlLocale(language),{month:'short',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit'})}</p></div><div className="flex items-center gap-3"><span className="rounded-full bg-primary/10 px-2 py-1 text-[10px] uppercase tracking-[.12em] text-primary">{t(item.status)}</span><span className="text-sm font-medium">{formatMoney(item.priceAmount, item.currency)}</span></div></div></div>)}</div> : <p className="mt-3 text-sm text-muted-foreground">{String(label) === t('UPCOMING') ? t('No upcoming appointments.') : t('No past appointments yet.')}</p>}</div>)}</div>}</section>}</main></>;
 }
 function StepLabel({n,text}:{n:string;text:string}) {const {t}=useLanguage();return <h2 className="flex items-center gap-3 text-sm font-medium"><span className="mono text-[10px] text-primary">{n}</span>{t(text)}</h2>}
 
@@ -883,17 +992,29 @@ export function GuestBookingManagementPage() {
 }
 
 export function ConfirmationPage() {
+  const { language } = useLanguage();
   const [confirmation,setConfirmation]=useState<BookingConfirmation|null>(null);
   useEffect(()=>{try{const value=sessionStorage.getItem('stillroom-confirmation');if(value)setConfirmation(JSON.parse(value) as BookingConfirmation)}catch{setConfirmation(null)}},[]);
-  return <><Meta title="Booking confirmed" description="Your appointment booking details."/><main className="page-enter mx-auto max-w-3xl px-5 py-16 md:py-24"><div className="rounded-[2rem] border border-border bg-card px-6 py-12 text-center md:px-14"><div className="mx-auto grid h-16 w-16 place-items-center rounded-full bg-secondary text-primary"><Check size={28}/></div>{confirmation?<><p className="mono mt-6 text-[10px] tracking-[.2em] text-primary">BOOKING {confirmation.status.toUpperCase()}</p><h1 className="serif mt-3 text-5xl md:text-6xl">Your pause is on the calendar.</h1><p className="mt-4 text-sm leading-6 text-muted-foreground">Your booking details are below. A confirmation has been created using the live schedule.</p><div className="mx-auto mt-9 max-w-md rounded-2xl bg-secondary/70 p-5 text-start"><div className="flex justify-between border-b border-border py-3"><span className="text-sm text-muted-foreground">Reference</span><span className="mono text-sm">{confirmation.bookingReference}</span></div><div className="flex justify-between border-b border-border py-3"><span className="text-sm text-muted-foreground">Treatment</span><span className="text-sm">{confirmation.serviceName}</span></div><div className="flex justify-between border-b border-border py-3"><span className="text-sm text-muted-foreground">Date & time</span><span className="text-right text-sm">{new Date(confirmation.startsAt).toLocaleString(undefined,{weekday:'short',month:'short',day:'numeric',hour:'numeric',minute:'2-digit'})}</span></div><div className="flex justify-between py-3"><span className="text-sm text-muted-foreground">Price</span><span className="text-sm">{formatMoney(confirmation.priceAmount,confirmation.currency)}</span></div></div><p className="mt-5 text-xs text-muted-foreground">Keep your reference for your records. The confirmation is saved only in this browser for reload support.</p></>:<><p className="mono mt-6 text-[10px] tracking-[.2em] text-primary">NO SAVED CONFIRMATION</p><h1 className="serif mt-3 text-5xl">Ready when you are.</h1><p className="mt-4 text-sm text-muted-foreground">We couldn't find a confirmation in this browser. Start a new booking to reserve a time.</p></>}<Link href="/book" className="mt-8 inline-flex items-center gap-2 rounded-full bg-primary px-6 py-4 text-sm text-primary-foreground">Book another visit <ArrowRight size={15}/></Link></div></main></>;
+  return <><Meta title="Booking confirmed" description="Your appointment booking details."/><main className="page-enter mx-auto max-w-3xl px-5 py-16 md:py-24"><div className="rounded-[2rem] border border-border bg-card px-6 py-12 text-center md:px-14"><div className="mx-auto grid h-16 w-16 place-items-center rounded-full bg-secondary text-primary"><Check size={28}/></div>{confirmation?<><p className="mono mt-6 text-[10px] tracking-[.2em] text-primary">BOOKING {confirmation.status.toUpperCase()}</p><h1 className="serif mt-3 text-5xl md:text-6xl">Your pause is on the calendar.</h1><p className="mt-4 text-sm leading-6 text-muted-foreground">Your booking details are below. A confirmation has been created using the live schedule.</p><div className="mx-auto mt-9 max-w-md rounded-2xl bg-secondary/70 p-5 text-start"><div className="flex justify-between border-b border-border py-3"><span className="text-sm text-muted-foreground">Reference</span><span className="mono text-sm">{confirmation.bookingReference}</span></div><div className="flex justify-between border-b border-border py-3"><span className="text-sm text-muted-foreground">Treatment</span><span className="text-sm">{confirmation.serviceName}</span></div><div className="flex justify-between border-b border-border py-3"><span className="text-sm text-muted-foreground">Date & time</span><span className="text-right text-sm">{new Date(confirmation.startsAt).toLocaleString(getIntlLocale(language),{weekday:'short',month:'short',day:'numeric',hour:'numeric',minute:'2-digit'})}</span></div><div className="flex justify-between py-3"><span className="text-sm text-muted-foreground">Price</span><span className="text-sm">{formatMoney(confirmation.priceAmount,confirmation.currency)}</span></div></div><p className="mt-5 text-xs text-muted-foreground">Keep your reference for your records. The confirmation is saved only in this browser for reload support.</p></>:<><p className="mono mt-6 text-[10px] tracking-[.2em] text-primary">NO SAVED CONFIRMATION</p><h1 className="serif mt-3 text-5xl">Ready when you are.</h1><p className="mt-4 text-sm text-muted-foreground">We couldn't find a confirmation in this browser. Start a new booking to reserve a time.</p></>}<Link href="/book" className="mt-8 inline-flex items-center gap-2 rounded-full bg-primary px-6 py-4 text-sm text-primary-foreground">Book another visit <ArrowRight size={15}/></Link></div></main></>;
 }
 
 export function PoliciesPage({privacy=false}:{privacy?:boolean}) {
+  const { language, t } = useLanguage();
   const profile=useGetSpaProfile();
+  if (!privacy) {
+    const weekdayFormatter = new Intl.DateTimeFormat(getIntlLocale(language), { weekday: 'long', timeZone: 'UTC' });
+    const days = Array.from({ length: 7 }, (_, index) => weekdayFormatter.format(new Date(Date.UTC(2024, 0, 7 + index))));
+    const address = "Av. de l'environnement, M'saken, Tunisie";
+    const mapUrl = 'https://maps.app.goo.gl/oKXfYfFcUZnzmea78';
+    return <><Meta title={t('Plan your visit')} description={t('Find us in M\'saken, open every day from 9:00 AM to 7:00 PM.')} noindex/><main className="page-enter mx-auto max-w-[1100px] px-5 py-14 md:px-10 md:py-20"><IntroTitle eyebrow={t('BEFORE YOU ARRIVE')} title={t('The details that make a visit easy.')} text={t('Find us in M\'saken, open every day from 9:00 AM to 7:00 PM.')}/><div className="mt-10 grid gap-6 md:grid-cols-2"><InfoPanel title={t('Location & contact')}><address className="not-italic">{address}<br/><span>PHQM+H3, M&apos;saken</span></address><a href="tel:+21655884366" dir="ltr" className="mt-5 flex min-h-11 w-fit items-center gap-3 text-base font-medium text-foreground underline underline-offset-4 hover:text-primary"><Phone size={18} aria-hidden="true"/><span>+216 55 884 366</span></a><a href={mapUrl} target="_blank" rel="noopener noreferrer" className="mt-2 flex min-h-11 w-fit items-center gap-3 text-sm text-primary underline underline-offset-4"><SiGooglemaps size={19} aria-hidden="true"/><span>{t('Open in Google Maps')}</span><ArrowUpRight size={15} aria-hidden="true"/></a><div className="mt-5 flex flex-wrap gap-x-5 gap-y-2 border-t border-border pt-4"><a href="https://www.instagram.com/complex_rouis_de_beaute/?hl=en" target="_blank" rel="noopener noreferrer" aria-label={t('Follow on Instagram')} className="inline-flex min-h-11 items-center gap-2 text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"><SiInstagram size={18} aria-hidden="true"/><span>Instagram</span></a><a href="https://www.facebook.com/p/complexe-rouis-desth%C3%A9tique-100089517565059/" target="_blank" rel="noopener noreferrer" aria-label={t('Follow on Facebook')} className="inline-flex min-h-11 items-center gap-2 text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"><SiFacebook size={18} aria-hidden="true"/><span>Facebook</span></a></div></InfoPanel><InfoPanel title={t('Opening hours')}><div className="divide-y divide-border">{days.map((day,index)=><div key={index} className="flex items-center justify-between gap-4 py-2.5 text-sm"><span className="text-foreground">{day}</span><span className="text-muted-foreground" dir="ltr">9:00–19:00</span></div>)}</div><p className="mt-4 text-xs text-muted-foreground">{t('Hours may vary on public holidays.')}</p></InfoPanel></div><figure className="group relative mt-7 overflow-hidden rounded-2xl border border-border bg-secondary"><img src="/complexe-rouis-salon.jpg" alt={t('A bright, welcoming salon interior at Complexe Rouis')} width="2048" height="1024" loading="lazy" decoding="async" className="aspect-[2/1] max-h-[360px] w-full object-cover object-center transition-transform duration-500 ease-out group-hover:scale-[1.01] motion-reduce:transition-none"/><figcaption className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/65 to-transparent px-4 pb-4 pt-12 text-xs text-white sm:px-6 sm:pb-5 sm:text-sm">{t('Inside Complexe Rouis')}</figcaption></figure></main></>;
+  }
   const heading=privacy?'Privacy':'Plan your visit';
-  return <><Meta title={heading} description={`${heading} information and setup placeholders.`}/><main className="page-enter mx-auto max-w-[1100px] px-5 py-14 md:px-10 md:py-20"><IntroTitle eyebrow={privacy?'YOUR INFORMATION':'BEFORE YOU ARRIVE'} title={privacy?'Privacy, plainly.':'The details that make a visit easy.'} text={privacy?'This is a privacy information template for the spa platform. Business-specific practices have not yet been supplied.':'A few practical notes so you can arrive feeling at ease. Current business information and policies are setup placeholders.'}/><div className="mt-10 rounded-2xl border border-accent/60 bg-accent/30 p-5 text-sm leading-6"><strong>Demo/setup notice:</strong> Replace all seed information with approved business details before launch. This page is not legal advice and should not be treated as a final legal policy.</div><div className="mt-8 grid gap-5 md:grid-cols-2"><InfoPanel title={privacy?'Information you provide':'Location & contact'}><p>{privacy?'Booking details submitted through this site are used to create and manage an appointment. The exact collection, storage, retention, and sharing practices must be confirmed by the business.':profile.data?`${profile.data.address}, ${profile.data.city}, ${profile.data.region}`:'Loading setup address…'}</p>{!privacy&&<p className="mt-3">Email: {profile.data?.contactEmail||'Loading'}<br/>Phone: {profile.data?.contactPhone||'Loading'}</p>}</InfoPanel><InfoPanel title={privacy?'Cookies & service providers':'Hours'}><p>{privacy?'The platform may use essential browser storage for booking confirmation support and authentication. Confirm analytics, cookie, and service-provider disclosures with the business.':profile.data?.openingHours||'Loading hours…'}</p>{!privacy&&<p className="mt-3">Timezone: {profile.data?.timezone||'Loading'}</p>}</InfoPanel><InfoPanel title={privacy?'Your choices':'Cancellation policy'}><p>{privacy?'Contact the business using the setup contact details to ask about access, correction, deletion, or privacy concerns. Response timelines and applicable rights must be verified.':profile.data?.cancellationPolicy||'Loading cancellation terms…'}</p></InfoPanel><InfoPanel title={privacy?'Policy updates':'Accessibility & questions'}><p>{privacy?'This template may be revised when approved privacy practices are available. The final version should state an effective date and any applicable jurisdiction-specific details.':'If you have a question or access need, reach out before booking. Contact information shown here is placeholder seed data until verified.'}</p></InfoPanel></div><div className="mt-8 rounded-2xl bg-secondary/75 p-5 text-xs leading-5 text-muted-foreground"><strong className="text-foreground">Not legal advice.</strong> This template is for product setup only. Have qualified counsel review final privacy notices and service/cancellation terms.</div></main></>;
+  const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  const address = "Av. de l'environnement, M'saken, Tunisie";
+  const mapUrl = 'https://maps.app.goo.gl/oKXfYfFcUZnzmea78';
+  return <><Meta title={heading} description={privacy?'Privacy information for Complexe Rouis.':'Opening hours, address, and contact details for Complexe Rouis in M\'saken.'} noindex/><main className="page-enter mx-auto max-w-[1100px] px-5 py-14 md:px-10 md:py-20"><IntroTitle eyebrow={privacy?'YOUR INFORMATION':'BEFORE YOU ARRIVE'} title={privacy?'Privacy, plainly.':'The details that make a visit easy.'} text={privacy?'This is a privacy information template for the spa platform. Business-specific practices have not yet been supplied.':'Find us in M\'saken, open every day from 9:00 AM to 7:00 PM.'}/>{privacy ? <><div className="mt-8 grid gap-5 md:grid-cols-2"><InfoPanel title="Information you provide"><p>Booking details submitted through this site are used to create and manage an appointment. The exact collection, storage, retention, and sharing practices must be confirmed by the business.</p></InfoPanel><InfoPanel title="Cookies & service providers"><p>The platform may use essential browser storage for booking confirmation support and authentication. Confirm analytics, cookie, and service-provider disclosures with the business.</p></InfoPanel><InfoPanel title="Your choices"><p>Contact the business using the contact details on the visit information page to ask about access, correction, deletion, or privacy concerns.</p></InfoPanel><InfoPanel title="Policy updates"><p>This information can be revised when approved privacy practices are available.</p></InfoPanel></div></> : <div className="mt-10 grid gap-6 md:grid-cols-[1fr_1fr]"><InfoPanel title="Find us"><address className="not-italic">{address}<br/><span>PHQM+H3, M&apos;saken</span></address><a href="tel:+21655884366" className="mt-5 flex min-h-11 w-fit items-center gap-3 text-base font-medium text-foreground underline underline-offset-4 hover:text-primary"><Phone size={18} aria-hidden="true"/><span>+216 55 884 366</span></a><a href={mapUrl} target="_blank" rel="noopener noreferrer" className="mt-2 flex min-h-11 w-fit items-center gap-3 text-sm text-primary underline underline-offset-4"><SiGooglemaps size={19} aria-hidden="true"/><span>Open in Google Maps</span><ArrowUpRight size={15} aria-hidden="true"/></a><div className="mt-5 flex flex-wrap gap-x-5 gap-y-2 border-t border-border pt-4"><a href="https://www.instagram.com/complex_rouis_de_beaute/?hl=en" target="_blank" rel="noopener noreferrer" aria-label="Complexe Rouis on Instagram" className="inline-flex min-h-11 items-center gap-2 text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"><SiInstagram size={18} aria-hidden="true"/><span>Instagram</span></a><a href="https://www.facebook.com/p/complexe-rouis-desth%C3%A9tique-100089517565059/" target="_blank" rel="noopener noreferrer" aria-label="Complexe Rouis on Facebook" className="inline-flex min-h-11 items-center gap-2 text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"><SiFacebook size={18} aria-hidden="true"/><span>Facebook</span></a></div></InfoPanel><InfoPanel title="Opening hours"><div className="divide-y divide-border">{days.map(day=><div key={day} className="flex items-center justify-between gap-4 py-2.5 text-sm"><span className="text-foreground">{day}</span><span className="text-muted-foreground">9:00 AM – 7:00 PM</span></div>)}</div><p className="mt-4 text-xs text-muted-foreground">Hours may vary on public holidays.</p></InfoPanel></div>}</main></>;
 }
-function InfoPanel({title,children}:{title:string;children:ReactNode}) { return <section className="rounded-2xl border border-border bg-card p-6"><h2 className="serif text-3xl">{title}</h2><div className="mt-4 text-sm leading-6 text-muted-foreground">{children}</div></section> }
+function InfoPanel({title,children}:{title:string;children:ReactNode}) { return <section className="rounded-2xl border border-border bg-card p-6 md:p-7"><h2 className="serif text-3xl">{title}</h2><div className="mt-4 text-sm leading-6 text-muted-foreground">{children}</div></section> }
 
 const BOOKING_DISCOUNTS_KEY = 'stillroom-booking-discounts';
 const BOOKING_EXTRA_ITEMS_KEY = 'stillroom-booking-extra-items';
@@ -963,9 +1084,10 @@ function extractBookingServices(
 }
 
 function DashboardInner() {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const dashboard = useGetManagerDashboard();
-  const bookings = useListManagerBookings({ date: dateLocal(new Date()) });
+  const [bookingDate, setBookingDate] = useState(() => dateLocal(new Date()));
+  const bookings = useListManagerBookings({ date: bookingDate });
   const allServicesQuery = useListServices();
   const staff = useListManagerStaff();
   const qc = useQueryClient();
@@ -1026,7 +1148,7 @@ function DashboardInner() {
       { id: booking.id, data: { staffId } },
       {
         onSuccess: () => {
-          setAssignmentMessage(`Esthéticienne assignée avec succès pour ${booking.customerName}.`);
+          setAssignmentMessage(`${t('Staff assignment saved for')} ${booking.customerName}.`);
           void qc.invalidateQueries({ queryKey: getListManagerBookingsQueryKey({ date: dateLocal(new Date()) }) });
           void qc.invalidateQueries({ queryKey: getGetManagerDashboardQueryKey() });
         },
@@ -1110,31 +1232,36 @@ function DashboardInner() {
   return (
     <div className="mt-8 space-y-8">
       {dashboard.isLoading || bookings.isLoading ? (
-        <LoadingBlock label="Chargement des réservations et paniers..." />
+        <LoadingBlock label={t('Loading bookings and carts…')} />
       ) : dashboard.isError || bookings.isError ? (
         <ErrorBlock retry={retry} />
       ) : (
         <>
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+            <div><p className="mono text-[10px] tracking-[.16em] text-primary">{t('DAILY OPERATIONS')}</p><h2 className="serif mt-2 text-3xl">{t('Bookings and follow-up')}</h2><p className="mt-1 text-sm text-muted-foreground">{t('Review requests, confirm visits, and keep the schedule moving.')}</p></div>
+            <label className="grid gap-1.5 text-xs text-muted-foreground">{t('Booking date')}<input type="date" value={bookingDate} onChange={event=>setBookingDate(event.target.value)} className="min-h-11 rounded-xl border border-input bg-card px-3 text-sm text-foreground"/></label>
+          </div>
+
           {/* Dashboard Summary Cards */}
-          <div className="grid gap-4 sm:grid-cols-4">
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
             <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
-              <p className="mono text-[9px] tracking-[.16em] text-muted-foreground">TOTAL AUJOURD'HUI</p>
+              <p className="mono text-[9px] tracking-[.16em] text-muted-foreground">{t('BOOKINGS ON SELECTED DATE')}</p>
               <p className="serif mt-2 text-4xl font-semibold text-foreground">{rawBookings.length}</p>
             </div>
             <div className="rounded-2xl border border-amber-500/20 bg-amber-500/5 p-5 shadow-sm">
-              <p className="mono text-[9px] tracking-[.16em] text-amber-700 dark:text-amber-400">EN ATTENTE D'APPEL</p>
+              <p className="mono text-[9px] tracking-[.16em] text-amber-700 dark:text-amber-400">{t('NEEDS CONFIRMATION')}</p>
               <p className="serif mt-2 text-4xl font-semibold text-amber-700 dark:text-amber-400">
                 {rawBookings.filter((b) => b.status === 'pending').length}
               </p>
             </div>
             <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-5 shadow-sm">
-              <p className="mono text-[9px] tracking-[.16em] text-emerald-700 dark:text-emerald-400">CONFIRMÉS PAR APPEL</p>
+              <p className="mono text-[9px] tracking-[.16em] text-emerald-700 dark:text-emerald-400">{t('CONFIRMED BY PHONE')}</p>
               <p className="serif mt-2 text-4xl font-semibold text-emerald-700 dark:text-emerald-400">
                 {rawBookings.filter((b) => b.status === 'confirmed').length}
               </p>
             </div>
             <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
-              <p className="mono text-[9px] tracking-[.16em] text-muted-foreground">TERMINÉS / ENCAISSÉS</p>
+              <p className="mono text-[9px] tracking-[.16em] text-muted-foreground">{t('COMPLETED / PAID')}</p>
               <p className="serif mt-2 text-4xl font-semibold text-primary">
                 {rawBookings.filter((b) => b.status === 'completed' || b.status === 'checked_in').length}
               </p>
@@ -1150,7 +1277,7 @@ function DashboardInner() {
                   type="text"
                   value={phoneSearch}
                   onChange={(e) => setPhoneSearch(e.target.value)}
-                  placeholder="Recherche par numéro de téléphone (ex: 98..., +216) ou nom client..."
+                  placeholder={t('Search by phone number or customer name…')}
                   className="w-full rounded-full border border-input bg-background pl-10 pr-4 py-2.5 text-sm focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:outline-none shadow-sm"
                 />
                 {phoneSearch && (
@@ -1165,13 +1292,13 @@ function DashboardInner() {
 
               {/* Status Filter Chips */}
               <div className="flex flex-wrap gap-1.5 items-center">
-                <span className="text-xs text-muted-foreground me-1 hidden sm:inline">Filtrer :</span>
+                <span className="text-xs text-muted-foreground me-1 hidden sm:inline">{t('Filter')}:</span>
                 {[
-                  ['all', 'Tous'],
-                  ['pending', '🟡 En attente appel'],
-                  ['confirmed', '🟢 Confirmés'],
-                  ['completed', '🔵 Terminés'],
-                  ['cancelled', '🔴 Injoignables / Rejetés'],
+                  ['all', t('All')],
+                  ['pending', t('Awaiting confirmation')],
+                  ['confirmed', t('Confirmed')],
+                  ['completed', t('Completed')],
+                  ['cancelled', t('Unreachable / Rejected')],
                 ].map(([val, lbl]) => (
                   <button
                     key={val}
@@ -1205,19 +1332,19 @@ function DashboardInner() {
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="mono text-[9px] tracking-[.18em] text-primary">GESTION DES APPELS & PANIERS</p>
-                <h2 className="serif text-3xl mt-1">Réservations Clients</h2>
+                <p className="mono text-[9px] tracking-[.18em] text-primary">{t('CALLS & CARTS')}</p>
+                <h2 className="serif text-3xl mt-1">{t('Customer bookings')}</h2>
               </div>
               <span className="text-xs text-muted-foreground">
-                {filteredBookings.length} réservation(s) affichée(s)
+                {filteredBookings.length} {t('booking(s) shown')}
               </span>
             </div>
 
             {filteredBookings.length === 0 ? (
               <div className="rounded-[1.5rem] border border-dashed border-border p-12 text-center bg-card/50">
                 <CalendarDays className="mx-auto text-muted-foreground/40" size={36} />
-                <p className="serif mt-3 text-2xl">Aucune réservation correspondante</p>
-                <p className="mt-1 text-xs text-muted-foreground">Modifiez votre recherche par téléphone ou le filtre de statut.</p>
+                <p className="serif mt-3 text-2xl">{t('No matching bookings')}</p>
+                <p className="mt-1 text-xs text-muted-foreground">{t('Adjust the phone search or status filter.')}</p>
               </div>
             ) : (
               <div className="grid gap-4">
@@ -1252,22 +1379,22 @@ function DashboardInner() {
                             </span>
                             {isCallPending && (
                               <span className="rounded-full bg-amber-500/15 border border-amber-500/30 px-2.5 py-0.5 text-[10px] font-semibold text-amber-700 dark:text-amber-400 animate-pulse">
-                                🟡 En attente d'appel
+                                {t('Awaiting call')}
                               </span>
                             )}
                             {isConfirmed && (
                               <span className="rounded-full bg-emerald-500/15 border border-emerald-500/30 px-2.5 py-0.5 text-[10px] font-semibold text-emerald-700 dark:text-emerald-400">
-                                🟢 Confirmé par téléphone
+                                {t('CONFIRMED BY PHONE')}
                               </span>
                             )}
                             {isCancelled && (
                               <span className="rounded-full bg-destructive/15 border border-destructive/30 px-2.5 py-0.5 text-[10px] font-semibold text-destructive">
-                                🔴 Injoignable / Rejeté
+                                {t('Unreachable / Rejected')}
                               </span>
                             )}
                             {isCompleted && (
                               <span className="rounded-full bg-primary/15 border border-primary/30 px-2.5 py-0.5 text-[10px] font-semibold text-primary">
-                                🔵 Soin terminé
+                                {t('Treatment completed')}
                               </span>
                             )}
                           </div>
@@ -1277,20 +1404,20 @@ function DashboardInner() {
                             {b.customerPhone ? (
                               <a
                                 href={`tel:${b.customerPhone}`}
-                                title="Appeler directement ce numéro"
+                                title={t('Call this number')}
                                 className="inline-flex items-center gap-2 rounded-full bg-emerald-600/15 hover:bg-emerald-600 text-emerald-800 dark:text-emerald-300 hover:text-white px-3.5 py-1.5 font-semibold transition border border-emerald-600/30 shadow-sm"
                               >
                                 <PhoneCall size={14} />
                                 <span>{b.customerPhone}</span>
-                                <span className="text-[10px] uppercase underline tracking-wider font-normal">Appeler</span>
+                                <span className="text-[10px] uppercase underline tracking-wider font-normal">{t('Call')}</span>
                               </a>
                             ) : (
-                              <span className="text-muted-foreground italic">Aucun téléphone</span>
+                              <span className="text-muted-foreground italic">{t('No phone number')}</span>
                             )}
                             {b.customerEmail && <span className="text-muted-foreground">{b.customerEmail}</span>}
                             <span className="text-muted-foreground">
-                              📅 {new Date(b.startsAt).toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' })} à{' '}
-                              <strong className="text-foreground">{new Date(b.startsAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}</strong>
+                              {new Date(b.startsAt).toLocaleDateString(getIntlLocale(language), { weekday: 'short', day: 'numeric', month: 'short' })} {t('at')}{' '}
+                              <strong className="text-foreground">{new Date(b.startsAt).toLocaleTimeString(getIntlLocale(language), { hour: '2-digit', minute: '2-digit' })}</strong>
                             </span>
                           </div>
 
@@ -1298,14 +1425,14 @@ function DashboardInner() {
                           <div className="mt-3 rounded-xl bg-secondary/40 p-3 border border-border/70">
                             <div className="flex items-center justify-between pb-2 mb-2 border-b border-border/50 text-xs">
                               <span className="font-medium text-foreground flex items-center gap-1.5">
-                                <ShoppingBag size={14} className="text-primary" /> Soins du panier ({servicesList.length}) :
+                                <ShoppingBag size={14} className="text-primary" /> {t('Treatments in cart')} ({servicesList.length}):
                               </span>
                               <button
                                 type="button"
                                 onClick={() => setEditingCartBooking(b)}
                                 className="inline-flex items-center gap-1 text-[11px] font-semibold text-primary hover:underline"
                               >
-                                <Edit3 size={12} /> Modifier le panier
+                                <Edit3 size={12} /> {t('Edit cart')}
                               </button>
                             </div>
                             <div className="flex flex-wrap gap-1.5">
@@ -1326,14 +1453,14 @@ function DashboardInner() {
                           {/* Financial Breakdown */}
                           <div className="rounded-xl bg-background border border-border p-3.5 space-y-2">
                             <div className="flex items-center justify-between text-xs text-muted-foreground">
-                              <span>Total brut :</span>
+                              <span>{t('Gross total:')}</span>
                               <span className="font-medium tabular-nums">{formatMoney(grossTotal, currency)}</span>
                             </div>
 
                             {/* Discount (1-50%) Selector */}
                             <div className="flex items-center justify-between gap-2 border-t border-border/50 pt-2 text-xs">
                               <span className="flex items-center gap-1 text-muted-foreground">
-                                <Percent size={13} className="text-primary" /> Remise :
+                                <Percent size={13} className="text-primary" /> {t('Discount:')}
                               </span>
                               <div className="flex items-center gap-1.5">
                                 <select
@@ -1360,7 +1487,7 @@ function DashboardInner() {
                             </div>
 
                             <div className="flex items-center justify-between border-t border-border pt-2 text-sm font-bold">
-                              <span>Total Net à Payer :</span>
+                              <span>{t('Net total due:')}</span>
                               <span className="serif text-xl text-primary tabular-nums">{formatMoney(netTotal, currency)}</span>
                             </div>
                           </div>
@@ -1374,13 +1501,13 @@ function DashboardInner() {
                                   onClick={() => changeStatus(b, 'confirmed')}
                                   className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-full bg-emerald-600 hover:bg-emerald-700 px-3.5 py-2 text-xs font-semibold text-white shadow-sm transition"
                                 >
-                                  <Check size={14} /> Confirmer appel
+                                  <Check size={14} /> {t('Confirm call')}
                                 </button>
                                 <button
                                   type="button"
                                   onClick={() => changeStatus(b, 'cancelled')}
                                   className="inline-flex items-center justify-center gap-1.5 rounded-full border border-destructive/40 bg-destructive/5 hover:bg-destructive/15 px-3 py-2 text-xs font-medium text-destructive transition"
-                                  title="Marquer comme injoignable ou refusé"
+                                  title={t('Mark as unreachable or rejected')}
                                 >
                                   <PhoneOff size={14} /> Injoignable
                                 </button>
@@ -1394,7 +1521,7 @@ function DashboardInner() {
                                   onClick={() => changeStatus(b, 'completed')}
                                   className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-full bg-primary hover:opacity-90 px-3.5 py-2 text-xs font-semibold text-primary-foreground shadow-sm transition"
                                 >
-                                  <CheckCircle2 size={14} /> Encaissé / Terminé
+                                  <CheckCircle2 size={14} /> {t('COMPLETED / PAID')}
                                 </button>
                                 <button
                                   type="button"
@@ -1412,7 +1539,7 @@ function DashboardInner() {
                                 onClick={() => changeStatus(b, 'pending')}
                                 className="inline-flex items-center justify-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground transition"
                               >
-                                <RefreshCw size={12} /> Remettre en attente
+                                <RefreshCw size={12} /> {t('Return to pending')}
                               </button>
                             )}
                           </div>
@@ -1431,8 +1558,8 @@ function DashboardInner() {
               <div className="w-full max-w-lg rounded-3xl border border-border bg-card p-6 shadow-2xl space-y-5 animate-in zoom-in-95 duration-200">
                 <div className="flex items-center justify-between border-b border-border pb-4">
                   <div>
-                    <p className="mono text-[9px] tracking-[.18em] text-primary">ADMINISTRATION PANIER</p>
-                    <h3 className="serif text-2xl mt-0.5">Modifier le panier de {editingCartBooking.customerName}</h3>
+                    <p className="mono text-[9px] tracking-[.18em] text-primary">{t('CART MANAGEMENT')}</p>
+                    <h3 className="serif text-2xl mt-0.5">{t('Edit cart')} de {editingCartBooking.customerName}</h3>
                   </div>
                   <button
                     type="button"
@@ -1445,7 +1572,7 @@ function DashboardInner() {
 
                 {/* Current items */}
                 <div className="space-y-2">
-                  <p className="text-xs font-semibold text-foreground">Soins actuels dans la réservation :</p>
+                  <p className="text-xs font-semibold text-foreground">{t('Current treatments in booking:')}</p>
                   <div className="max-h-48 overflow-y-auto space-y-2 pe-1">
                     {getBookingServicesList(editingCartBooking).map((item, idx) => (
                       <div key={idx} className="flex items-center justify-between gap-3 rounded-xl border border-border bg-secondary/30 px-3.5 py-2.5 text-xs">
@@ -1466,14 +1593,14 @@ function DashboardInner() {
 
                 {/* Add more services */}
                 <div className="space-y-2 border-t border-border pt-4">
-                  <label className="text-xs font-semibold text-foreground">Ajouter un soin supplémentaire (Séduit lors de l'appel) :</label>
+                  <label className="text-xs font-semibold text-foreground">{t('Add an extra treatment (offered during the call):')}</label>
                   <div className="flex gap-2">
                     <select
                       value={serviceToAdd}
                       onChange={(e) => setServiceToAdd(e.target.value)}
                       className="flex-1 rounded-xl border border-input bg-background px-3 py-2 text-xs focus-visible:outline-none"
                     >
-                      <option value="">Sélectionner parmi les 56 soins Rouis...</option>
+                      <option value="">{t('Choose from available treatments…')}</option>
                       {allAvailableServices.map((s) => (
                         <option key={s.id} value={s.name}>
                           {s.name} ({s.category}) — {formatMoney(s.priceAmount, s.currency)}
@@ -1497,7 +1624,7 @@ function DashboardInner() {
                     onClick={() => setEditingCartBooking(null)}
                     className="rounded-full bg-primary px-6 py-2.5 text-xs font-medium text-primary-foreground shadow-sm"
                   >
-                    Terminer & Enregistrer
+                    {t('Done & save')}
                   </button>
                 </div>
               </div>
@@ -1540,7 +1667,7 @@ function ServicesManagementPanel() {
     'Soins du visage',
     'Maquillage',
     'Coiffure & Chignon',
-    'Épilation',
+    '\u00c9pilation',
     'Massage',
     'Amincissement',
   ];
@@ -1689,8 +1816,8 @@ function ServicesManagementPanel() {
       });
       setSuccess(
         editing
-          ? 'Le soin a été mis à jour avec succès dans la base de données !'
-          : 'Le nouveau soin a été enregistré avec succès en base de données !',
+          ? t('Treatment updated successfully.')
+          : t('Treatment created successfully.'),
       );
       resetForm();
       load();
@@ -1702,8 +1829,8 @@ function ServicesManagementPanel() {
   };
 
   const disable = async (id: string, currentStatus: boolean) => {
-    const action = currentStatus ? 'désactiver' : 'réactiver';
-    if (!window.confirm(`Voulez-vous ${action} cette prestation ?`)) return;
+    const action = currentStatus ? t('deactivate') : t('reactivate');
+    if (!window.confirm(`${t('Would you like to')} ${action} ${t('this treatment?')}`)) return;
     try {
       await managementRequest(`/api/manager/services/${id}`, {
         method: 'PATCH',
@@ -1721,10 +1848,10 @@ function ServicesManagementPanel() {
       <div className="rounded-[1.5rem] border border-border bg-card p-5 md:p-7">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
-            <p className="mono text-[9px] tracking-[.18em] text-primary">BASE DE DONNÉES DU SALON</p>
+            <p className="mono text-[9px] tracking-[.18em] text-primary">BASE DE DONN&Eacute;ES DU SALON</p>
             <h2 className="serif mt-2 text-4xl">Catalogue des Prestations</h2>
             <p className="mt-1 text-xs text-muted-foreground">
-              {items.length} prestations enregistrées en base de données
+              {items.length} {t('treatments saved in the catalog')}
             </p>
           </div>
           <button
@@ -1775,12 +1902,12 @@ function ServicesManagementPanel() {
                         </span>
                         {item.isFeatured && (
                           <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] text-primary font-semibold">
-                            À la une
+                            &Agrave; la une
                           </span>
                         )}
                         {!item.isActive && (
                           <span className="rounded-full bg-destructive/10 px-2 py-0.5 text-[10px] text-destructive">
-                            Désactivé
+                            {t('Disabled')}
                           </span>
                         )}
                       </div>
@@ -1789,9 +1916,9 @@ function ServicesManagementPanel() {
                       </p>
                       <div className="mt-2 flex items-center gap-3 text-xs">
                         <span className="font-semibold text-primary">{Math.round(item.priceAmount * (100-item.discountPercent) / 10000)} dt</span>{item.discountPercent>0&&<><del className="text-muted-foreground">{Math.round(item.priceAmount/100)} dt</del><span className="rounded-full bg-destructive/10 px-2 py-0.5 text-[10px] font-semibold text-destructive">-{item.discountPercent}%</span></>}
-                        <span className="text-muted-foreground">• {item.durationMinutes} min</span>
+                        <span className="text-muted-foreground">&bull; {item.durationMinutes} min</span>
                         <span className="text-[10px] text-muted-foreground mono">
-                          {item.imageUrl ? 'Photo configurée' : 'Pas de photo'}
+                          {item.imageUrl ? t('Photo set') : t('No photo')}
                         </span>
                       </div>
                     </div>
@@ -1815,7 +1942,7 @@ function ServicesManagementPanel() {
                           : 'border-border text-emerald-600 hover:bg-emerald-50'
                       }`}
                       aria-label={`Statut ${item.name}`}
-                      title={item.isActive ? 'Désactiver' : 'Réactiver'}
+                      title={item.isActive ? t('Deactivate') : t('Reactivate')}
                     >
                       {item.isActive ? <Trash2 size={14} /> : <Check size={14} />}
                     </button>
@@ -1844,7 +1971,7 @@ function ServicesManagementPanel() {
           )}
         </div>
         <h3 className="serif text-2xl mt-1">
-          {editing ? 'Modifier la prestation' : 'Créer une prestation'}
+          {editing ? t('Edit treatment') : t('Create a treatment')}
         </h3>
 
         <div className="mt-5 grid gap-3.5">
@@ -1860,9 +1987,9 @@ function ServicesManagementPanel() {
             />
           </label>
 
-          {/* Catégorie */}
+          {/* t('Category') */}
           <div className="grid gap-1 text-xs font-medium">
-            <label>Catégorie *</label>
+            <label>{t('Category')} *</label>
             <select
               value={form.category}
               onChange={(e) => setForm({ ...form, category: e.target.value })}
@@ -1873,14 +2000,14 @@ function ServicesManagementPanel() {
                   {c}
                 </option>
               ))}
-              <option value="Autre">Autre (personnalisée)</option>
+              <option value="Autre">{t('Other (custom)')}</option>
             </select>
             {form.category === 'Autre' && (
               <input
                 required
                 value={form.customCategory}
                 onChange={(e) => setForm({ ...form, customCategory: e.target.value })}
-                placeholder="Nom de la nouvelle catégorie"
+                placeholder={t('New category name')}
                 className="mt-1 rounded-xl border border-input bg-background px-3 py-2 text-sm"
               />
             )}
@@ -1888,24 +2015,24 @@ function ServicesManagementPanel() {
 
           {/* Description courte */}
           <label className="grid gap-1 text-xs font-medium">
-            Description courte (affichée sur la carte) *
+            {t('Short description (shown on the card)')} *
             <input
               required
               value={form.shortDescription}
               onChange={(e) => setForm({ ...form, shortDescription: e.target.value })}
-              placeholder="Ex: Nettoyage profond et soin éclat du visage."
+              placeholder={t('Deep cleansing and facial glow treatment.')}
               className="rounded-xl border border-input bg-background px-3 py-2.5 text-sm"
             />
           </label>
 
           {/* Description complète */}
           <label className="grid gap-1 text-xs font-medium">
-            Description détaillée (page du soin)
+            {t('Full description (treatment page)')}
             <textarea
               rows={3}
               value={form.description}
               onChange={(e) => setForm({ ...form, description: e.target.value })}
-              placeholder="Protocole, étapes et bienfaits détaillés de la séance..."
+              placeholder={t('Treatment steps and benefits…')}
               className="rounded-xl border border-input bg-background px-3 py-2 text-sm"
             />
           </label>
@@ -1915,12 +2042,12 @@ function ServicesManagementPanel() {
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold">Photo du soin</span>
               <span className="text-[10px] text-primary mono bg-primary/10 px-2 py-0.5 rounded-full">
-                800 × 600 px recommandé
+                800 &times; 600 px {t('recommended')}
               </span>
             </div>
 
             <p className="text-[11px] text-muted-foreground leading-4">
-              Formats recommandés : JPEG, PNG ou WebP (ratio 4:3 ou 16:9, max 3 Mo).
+              {t('Recommended formats: JPEG, PNG or WebP (4:3 or 16:9 ratio, max 3 MB).')}
             </p>
 
             {/* Input URL direct */}
@@ -1949,7 +2076,7 @@ function ServicesManagementPanel() {
                 onClick={() => fileInputRef.current?.click()}
                 className="flex-1 rounded-xl border border-border bg-background py-2 text-xs font-medium hover:bg-secondary transition text-center"
               >
-                📁 Choisir une photo locale
+                <Camera size={15} aria-hidden="true" /> Choisir une photo locale
               </button>
               {form.imageUrl && (
                 <button
@@ -1970,17 +2097,17 @@ function ServicesManagementPanel() {
               <div className="relative mt-2 overflow-hidden rounded-xl border border-border bg-black/5">
                 <img
                   src={form.imageUrl}
-                  alt="Aperçu du soin"
+                  alt={t('Treatment preview')}
                   className="h-32 w-full object-cover"
                 />
                 <span className="absolute bottom-1.5 start-2 rounded bg-black/60 px-2 py-0.5 text-[9px] text-white backdrop-blur">
-                  Aperçu en direct
+                  {t('Live preview')}
                 </span>
               </div>
             )}
           </div>
 
-          {/* Tarif en Dinars et Durée */}
+          {/* {t('Price in dinars and duration')} */}
           <div className="grid grid-cols-2 gap-3">
             <label className="grid gap-1 text-xs font-medium">
               Tarif en Dinars (DT) *
@@ -2001,7 +2128,7 @@ function ServicesManagementPanel() {
             </label>
 
             <label className="grid gap-1 text-xs font-medium">
-              Durée (minutes) *
+              {t('Duration (minutes)')} *
               <div className="relative">
                 <input
                   required
@@ -2086,12 +2213,12 @@ export function ManagerPage() {
   const {t}=useLanguage();
   const [tab,setTab]=useState<'overview'|'staff'|'customers'|'services'|'audit'>('overview');
   const { user } = useUser();
-  const tabs=[['overview',t('Paniers & Réservations')],['staff',t('Staff')],['customers',t('Customers')],['services',t('Treatments')],['audit',t('Audit logs')]] as const;
-  return <><Meta title={tab==='overview'?"Paniers & Réservations":tabs.find(item=>item[0]===tab)?.[1]||'Staff desk'} description="Gestion des paniers, appels clients et réservations."/><main className="page-enter mx-auto max-w-[1320px] px-5 py-12 md:px-10 md:py-16"><div className="flex flex-wrap items-end justify-between gap-4"><div><p className="mono text-[10px] tracking-[.2em] text-primary">{t('ADMINISTRATION SALON')}</p><h1 className="serif mt-3 text-5xl md:text-6xl">{tab==='overview'?t('Paniers & Réservations'):tabs.find(item=>item[0]===tab)?.[1]}</h1><p className="mt-3 text-sm text-muted-foreground">{t('Gestion des appels de confirmation, remises personnalisées (1-50%) et modifications de paniers.')}</p></div><HealthPip/></div><div className="mt-8 flex flex-wrap gap-2 border-b border-border pb-3">{tabs.map(([value,label])=><button key={value} type="button" onClick={()=>setTab(value)} className={`rounded-full px-4 py-2.5 text-xs ${tab===value?'bg-primary text-primary-foreground font-medium':'border border-border bg-card hover:bg-secondary'}`} data-testid={`tab-manager-${value}`}>{label}</button>)}</div>{tab==='overview'&&<DashboardInner/>}{tab==='staff'&&<StaffManagementPanel/>}{tab==='customers'&&<CustomerManagementPanel/>}{tab==='services'&&<ServicesManagementPanel/>}{tab==='audit'&&<AuditPage businessOnly={user?.publicMetadata?.role !== 'admin'}/>}</main></>;
+  const tabs=[['overview',t("Bookings & reservations")],['staff',t('Staff')],['customers',t('Customers')],['services',t('Treatments')],['audit',t('Audit logs')]] as const;
+  return <><Meta title={tab==='overview'?"Paniers & Réservations":tabs.find(item=>item[0]===tab)?.[1]||'Staff desk'} description="Gestion des paniers, appels clients et réservations."/><main className="page-enter mx-auto max-w-[1320px] px-5 py-12 md:px-10 md:py-16"><div className="flex flex-wrap items-end justify-between gap-4"><div><p className="mono text-[10px] tracking-[.2em] text-primary">{t("SALON ADMINISTRATION")}</p><h1 className="serif mt-3 text-5xl md:text-6xl">{tab==='overview'?t("Bookings & reservations"):tabs.find(item=>item[0]===tab)?.[1]}</h1><p className="mt-3 text-sm text-muted-foreground">{t("Manage confirmation calls, discounts (1-50%), and cart changes.")}</p></div><HealthPip/></div><div className="mt-8 flex flex-wrap gap-2 border-b border-border pb-3">{tabs.map(([value,label])=><button key={value} type="button" onClick={()=>setTab(value)} className={`rounded-full px-4 py-2.5 text-xs ${tab===value?'bg-primary text-primary-foreground font-medium':'border border-border bg-card hover:bg-secondary'}`} data-testid={`tab-manager-${value}`}>{label}</button>)}</div>{tab==='overview'&&<DashboardInner/>}{tab==='staff'&&<StaffManagementPanel/>}{tab==='customers'&&<CustomerManagementPanel/>}{tab==='services'&&<ServicesManagementPanel/>}{tab==='audit'&&<AuditPage businessOnly={user?.publicMetadata?.role !== 'admin'}/>}</main></>;
 }
 
 export function AuditPage({ businessOnly = false }: { businessOnly?: boolean }) {
-  const {t}=useLanguage();
+  const {t,language}=useLanguage();
   const logs=useQuery<AuditEvent[]>({
     queryKey: ['audit-logs', businessOnly],
     queryFn: async () => {
@@ -2113,5 +2240,5 @@ export function AuditPage({ businessOnly = false }: { businessOnly?: boolean }) 
     const actorMatches=actorFilter==='all'||(actorFilter==='guest'?normalizedActor==='guest':actorFilter==='customer'?normalizedActor.includes('customer'):normalizedActor.includes('manager')||normalizedActor.includes('admin')||normalizedActor.includes('staff'));
     return entityMatches&&actorMatches&&`${row.actorLabel} ${row.action} ${row.entityType} ${row.entityId}`.toLowerCase().includes(search.toLowerCase());
   }).map((row:AuditEvent)=>({...row,actorLabel:t(row.actorLabel),entityType:t(row.entityType)}));
-  return <><Meta title="Audit log" description="Owner audit history for operational changes."/><main className="page-enter mx-auto max-w-[1320px] px-5 py-12 md:px-10 md:py-16"><p className="mono text-[10px] tracking-[.2em] text-primary">OWNER VIEW</p><h1 className="serif mt-3 text-5xl md:text-6xl">Audit trail.</h1><p className="mt-3 text-sm text-muted-foreground">A record of actions returned by the protected service.</p><section className="mt-8 rounded-[1.5rem] border border-border bg-card p-5 md:p-7"><div className="flex flex-col justify-between gap-4 md:flex-row md:items-center"><div><h2 className="serif text-3xl">Recent events</h2><p className="mt-1 text-xs text-muted-foreground">Rows below are live API data; no sample events are inserted.</p></div><div className="flex flex-wrap gap-2"><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search events" className="rounded-xl border border-input bg-background px-4 py-3 text-sm md:w-56" data-testid="input-audit-search"/><select aria-label="Filter audit log by record type" value={entityFilter} onChange={e=>setEntityFilter(e.target.value)} className="rounded-xl border border-input bg-background px-3 py-3 text-sm"><option value="all">All records</option>{['booking','service','customer','staff','account','settings'].map(value=><option key={value} value={value}>{value[0]?.toUpperCase()}{value.slice(1)}</option>)}</select><select aria-label="Filter audit log by actor" value={actorFilter} onChange={e=>setActorFilter(e.target.value)} className="rounded-xl border border-input bg-background px-3 py-3 text-sm"><option value="all">All actors</option><option value="guest">{t("Guests")}</option><option value="customer">Customer accounts</option><option value="staff">Staff / admins</option></select></div></div>{logs.isLoading?<LoadingBlock label="Loading audit events"/>:logs.isError?<ErrorBlock retry={()=>void logs.refetch()}/>:filtered.length?<div className="mt-5 overflow-x-auto"><table className="w-full min-w-[690px] border-collapse text-start text-sm"><thead><tr className="border-b border-border text-[10px] tracking-[.1em] text-muted-foreground"><th className="py-3 font-normal">WHEN</th><th className="py-3 font-normal">ACTOR</th><th className="py-3 font-normal">ACTION</th><th className="py-3 font-normal">ENTITY</th><th className="py-3 font-normal">ID</th></tr></thead><tbody>{filtered.map((row:AuditEvent)=><tr key={row.id} className="border-b border-border/70"><td className="py-4 text-xs text-muted-foreground">{new Date(row.createdAt).toLocaleString()}</td><td className="py-4">{row.actorLabel}</td><td className="py-4">{row.action}</td><td className="py-4">{row.entityType}</td><td className="mono py-4 text-xs">{row.entityId}</td></tr>)}</tbody></table></div>:<div className="py-14 text-center"><p className="serif text-3xl">Nothing to show yet.</p><p className="mt-2 text-sm text-muted-foreground">{Array.isArray(logs.data)&&logs.data.length?'No events match those filters.':'No audit events have been returned.'}</p></div>}</section></main></>;
+  return <><Meta title="Audit log" description="Owner audit history for operational changes."/><main className="page-enter mx-auto max-w-[1320px] px-5 py-12 md:px-10 md:py-16"><p className="mono text-[10px] tracking-[.2em] text-primary">OWNER VIEW</p><h1 className="serif mt-3 text-5xl md:text-6xl">Audit trail.</h1><p className="mt-3 text-sm text-muted-foreground">A record of actions returned by the protected service.</p><section className="mt-8 rounded-[1.5rem] border border-border bg-card p-5 md:p-7"><div className="flex flex-col justify-between gap-4 md:flex-row md:items-center"><div><h2 className="serif text-3xl">Recent events</h2><p className="mt-1 text-xs text-muted-foreground">Rows below are live API data; no sample events are inserted.</p></div><div className="flex flex-wrap gap-2"><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search events" className="rounded-xl border border-input bg-background px-4 py-3 text-sm md:w-56" data-testid="input-audit-search"/><select aria-label="Filter audit log by record type" value={entityFilter} onChange={e=>setEntityFilter(e.target.value)} className="rounded-xl border border-input bg-background px-3 py-3 text-sm"><option value="all">All records</option>{['booking','service','customer','staff','account','settings'].map(value=><option key={value} value={value}>{value[0]?.toUpperCase()}{value.slice(1)}</option>)}</select><select aria-label="Filter audit log by actor" value={actorFilter} onChange={e=>setActorFilter(e.target.value)} className="rounded-xl border border-input bg-background px-3 py-3 text-sm"><option value="all">All actors</option><option value="guest">{t("Guests")}</option><option value="customer">Customer accounts</option><option value="staff">Staff / admins</option></select></div></div>{logs.isLoading?<LoadingBlock label="Loading audit events"/>:logs.isError?<ErrorBlock retry={()=>void logs.refetch()}/>:filtered.length?<div className="mt-5 overflow-x-auto"><table className="w-full min-w-[690px] border-collapse text-start text-sm"><thead><tr className="border-b border-border text-[10px] tracking-[.1em] text-muted-foreground"><th className="py-3 font-normal">WHEN</th><th className="py-3 font-normal">ACTOR</th><th className="py-3 font-normal">ACTION</th><th className="py-3 font-normal">ENTITY</th><th className="py-3 font-normal">ID</th></tr></thead><tbody>{filtered.map((row:AuditEvent)=><tr key={row.id} className="border-b border-border/70"><td className="py-4 text-xs text-muted-foreground">{new Date(row.createdAt).toLocaleString(getIntlLocale(language))}</td><td className="py-4">{row.actorLabel}</td><td className="py-4">{row.action}</td><td className="py-4">{row.entityType}</td><td className="mono py-4 text-xs">{row.entityId}</td></tr>)}</tbody></table></div>:<div className="py-14 text-center"><p className="serif text-3xl">Nothing to show yet.</p><p className="mt-2 text-sm text-muted-foreground">{Array.isArray(logs.data)&&logs.data.length?'No events match those filters.':'No audit events have been returned.'}</p></div>}</section></main></>;
 }

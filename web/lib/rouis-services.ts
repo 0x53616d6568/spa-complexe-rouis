@@ -34,6 +34,7 @@ export type RouisCategory =
   | 'Maquillage'
   | 'Coiffure & Chignon'
   | 'Épilation'
+  | 'Soins du corps'
   | 'Massage'
   | 'Amincissement';
 
@@ -45,6 +46,7 @@ export const ROUIS_CATEGORIES: readonly RouisCategory[] = [
   'Maquillage',
   'Coiffure & Chignon',
   'Épilation',
+  'Soins du corps',
   'Massage',
   'Amincissement',
 ] as const;
@@ -262,7 +264,7 @@ export const ROUIS_SERVICES: readonly RouisService[] = [
   {
     id: 'hammam',
     name: 'Hammam',
-    category: 'Épilation',
+    category: 'Soins du corps',
     price: 20,
     variants: [
       { label: 'Hammam', price: 20 },
